@@ -24,7 +24,8 @@ namespace Microsoft.BotBuilderSamples
 
                 // Send a catch-all apology to the user.
                 var errorMessage = MessageFactory.Text(ErrorMsgText, ErrorMsgText, InputHints.ExpectingInput);
-                await turnContext.SendActivityAsync(errorMessage);
+                var extraErrorMessage = MessageFactory.Text(exception.Message);
+                await turnContext.SendActivityAsync(extraErrorMessage);
 
                 if (conversationState != null)
                 {
