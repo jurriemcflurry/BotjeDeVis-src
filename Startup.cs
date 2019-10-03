@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+using CoreBot.Dialogs;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
@@ -34,8 +35,11 @@ namespace Microsoft.BotBuilderSamples
             // Register LUIS recognizer
             services.AddSingleton<WebshopRecognizer>();
 
-            // Register the BookingDialog.
-            services.AddSingleton<BookingDialog>();
+            // Register the dialogs here.
+            services.AddSingleton<OrdersDialog>();
+            services.AddSingleton<ProductsDialog>();
+            services.AddSingleton<GreetingDialog>();
+            services.AddSingleton<NoneDialog>();
 
             // The MainDialog that will be run by the bot.
             services.AddSingleton<MainDialog>();
