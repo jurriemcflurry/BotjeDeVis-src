@@ -16,14 +16,6 @@
       "text": "Welcome to Bot Framework!",
       "wrap": true,
       "maxLines": 0
-    },
-    {
-      "type": "TextBlock",
-      "size": "default",
-      "isSubtle": "yes",
-      "text": "Now that you have successfully run your bot, follow the links in this Adaptive Card to expand your knowledge of Bot Framework.",
-      "wrap": true,
-      "maxLines": 0
     }
   ]
 }
