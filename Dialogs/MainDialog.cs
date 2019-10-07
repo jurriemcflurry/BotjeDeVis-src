@@ -11,6 +11,7 @@ using CoreBot.Dialogs;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Schema;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Recognizers.Text.DataTypes.TimexExpression;
 
@@ -22,14 +23,14 @@ namespace Microsoft.BotBuilderSamples.Dialogs
         protected readonly ILogger Logger;
 
         // Dependency injection uses this constructor to instantiate MainDialog
-        public MainDialog(WebshopRecognizer luisRecognizer, ILogger<MainDialog> logger)
+        public MainDialog(WebshopRecognizer luisRecognizer, ILogger<MainDialog> logger, IConfiguration configuration)
             : base(nameof(MainDialog))
         {
             _luisRecognizer = luisRecognizer;
             Logger = logger;
 
             AddDialog(new TextPrompt(nameof(TextPrompt)));
-            AddDialog(new OrdersDialog());
+            AddDialog(new OrdersDialog(configuration));
             AddDialog(new ProductsDialog());
             AddDialog(new GreetingDialog());
             AddDialog(new NoneDialog());

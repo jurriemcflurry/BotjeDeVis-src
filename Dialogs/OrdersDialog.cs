@@ -1,6 +1,11 @@
-﻿using Microsoft.Bot.Builder;
+﻿using Gremlin.Net.Driver;
+using Gremlin.Net.Structure.IO.GraphSON;
+using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.BotBuilderSamples.Dialogs;
+using Microsoft.Extensions.Configuration;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,9 +16,19 @@ namespace CoreBot.Dialogs
 {
     public class OrdersDialog : CancelAndHelpDialog
     {
+        private GremlinServer gremlinServer;
         
-        public OrdersDialog() : base(nameof(OrdersDialog))
+        public OrdersDialog(IConfiguration configuration) : base(nameof(OrdersDialog))
         {
+            string hostname = configuration["cosgraphendpoint"];
+            int port = 443;
+            string authKey = configuration["cosgraphkey"];
+            string database = "botjedevis";
+            string collection = "webshop";
+            this.gremlinServer = new GremlinServer(hostname, port, enableSsl: true,
+                                                            username: "/dbs/" + database + "/colls/" + collection,
+                                                            password: authKey);
+
             AddDialog(new TextPrompt(nameof(TextPrompt)));
             AddDialog(new WaterfallDialog(nameof(WaterfallDialog), new WaterfallStep[]
             {
@@ -26,8 +41,27 @@ namespace CoreBot.Dialogs
 
         private async Task<DialogTurnResult> ConfirmOrdersIntent(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
-            var confirmOrdersIntent = "Je bent nu in de OrdersDialog!";
-            await stepContext.Context.SendActivityAsync(confirmOrdersIntent);
+            //onderstaand is een test om de Gremlinconnectie uit te voeren; werkende code
+            var gremlinClient = new GremlinClient(gremlinServer, new GraphSON2Reader(), new GraphSON2Writer(), GremlinClient.GraphSON2MimeType);
+            string query = "g.V().hasLabel('person')";
+            var results = await gremlinClient.SubmitAsync<dynamic>(query);
+            foreach(var result in results)
+            {
+                string output = JsonConvert.SerializeObject(result);
+                var jsonObj = JObject.Parse(output);
+                string userId = (string)jsonObj["id"];
+
+                
+
+                var properties = jsonObj["properties"];
+                var name = properties["name"];
+                var personNameArray = name[0];
+                var personName = personNameArray["value"];
+
+                await stepContext.Context.SendActivityAsync(personName.ToString());
+            }
+            //var confirmOrdersIntent = "Je bent nu in de OrdersDialog!";
+            
             return await stepContext.NextAsync(null, cancellationToken);
         }
 

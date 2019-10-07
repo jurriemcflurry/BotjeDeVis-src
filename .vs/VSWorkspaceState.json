@@ -4,8 +4,9 @@
     "\\Bots",
     "\\Cards",
     "\\CognitiveModels",
+    "\\Controllers",
     "\\Dialogs"
   ],
-  "SelectedNode": "\\CognitiveModels\\FlightBooking.cs",
+  "SelectedNode": "\\CoreBot.sln",
   "PreviewInSolutionExplorer": false
 }

@@ -10,7 +10,7 @@ namespace CoreBot.Dialogs
 {
     public class NoneDialog : CancelAndHelpDialog
     {
-        public NoneDialog() : base(nameof(GreetingDialog))
+        public NoneDialog() : base(nameof(NoneDialog))
         {
             AddDialog(new TextPrompt(nameof(TextPrompt)));
             AddDialog(new WaterfallDialog(nameof(WaterfallDialog), new WaterfallStep[]
