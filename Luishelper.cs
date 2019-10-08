@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using CoreBot.Models;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.AI.Luis;
 using Newtonsoft.Json;
@@ -17,6 +18,7 @@ namespace CoreBot.CognitiveModels
             Greeting,
             Orders,
             Products,
+            Retour,
             None
         }
         public Dictionary<Intent, IntentScore> Intents;
@@ -28,10 +30,12 @@ namespace CoreBot.CognitiveModels
             public DateTimeSpec[] datetime;
 
             // Lists
-            
+           
+            [JsonProperty("product")]
+            public string[] products;
 
             // Composites
-           
+
             // Instance
             public class _Instance
             {
