@@ -23,7 +23,7 @@ namespace CoreBot.Database
             this.graphkey = configuration["cosgraphkey"];
         }
 
-        public GremlinClient ConnectToDatabase()
+        private GremlinClient ConnectToDatabase()
         {
             string hostname = graphendpoint;
             int port = 443;
@@ -38,48 +38,64 @@ namespace CoreBot.Database
             return gremlinClient;
         }
 
-        public void StoreOrder(Order order)
+        public async Task<bool> StoreOrder(Order order)
         {
             g = ConnectToDatabase();
-            
-            //vind de producten adhv Label = product & name = productName
-            //indien niet gevonden, maak product
+
             //creeer order met ordernummer
+            string query = "g.addV('order').property('data','order').property('number','" + order.GetOrderNumber().ToString() + "')";
+            var result = await g.SubmitAsync<dynamic>(query);
+
+            if (g.SubmitAsync<dynamic>(query).IsFaulted)
+            {
+                return false;
+            }
+
             //creeer edges tussen net gemaakt order, en de producten in de database adhv label = product & name = productName
-            // maak databasecall om order op te slaan
+            foreach (Product p in order.GetProducts())
+            {
+                string query2 = "g.V().hasLabel('order').has('number','" + order.GetOrderNumber().ToString() + "').as('a').V().hasLabel('product').has('name','" + p.GetProductName() + "').as('b').addE('contains_product').from('a').to('b')";
+                var result2 = await g.SubmitAsync<dynamic>(query2);
+
+                if (g.SubmitAsync<dynamic>(query2).IsFaulted)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         public async Task<bool> ProductExists(Product product)
         {
+            g = ConnectToDatabase();
             string query = "g.V().hasLabel('product').has('name','" + product.GetProductName() + "')";
             var result = await g.SubmitAsync<dynamic>(query);
             string output = JsonConvert.SerializeObject(result);
 
-            if(output != null)
+            //als product niet bestaat, bestaat de vertice niet, en wordt er een lege array gereturned. Als de array dus niet leeg is, is het product gevonden.
+            if(output != "[]")
             {
                 return true;
             }
 
             return false;
         }
+
+        public async Task<string> AnswerQuestion(string onderwerp)
+        {
+            g = ConnectToDatabase();
+            string query = "g.V().hasLabel('vraag').has('onderwerp','" + onderwerp + "').outE().inV()";
+            var result = await g.SubmitAsync<dynamic>(query);
+            var output = JsonConvert.SerializeObject(result);
+            var jsonArray = JArray.Parse(output);
+            var jsonObj = (JObject)jsonArray[0];
+            var properties = (JObject)jsonObj["properties"];
+            var antwoordArray = (JArray)properties["antwoord"];
+            var antwoordArray2 = (JObject)antwoordArray[0];
+            string antwoord = antwoordArray2["value"].ToString();
+
+            return antwoord;
+        }
     }
 }
-
-//onderstaand is een test om de Gremlinconnectie uit te voeren; werkende code           
-/* string query = "g.V().hasLabel('person')";
- var results = await g.SubmitAsync<dynamic>(query);
- foreach (var result in results)
- {
-     string output = JsonConvert.SerializeObject(result);
-     var jsonObj = JObject.Parse(output);
-     string userId = (string)jsonObj["id"];
-
-
-
-     var properties = jsonObj["properties"];
-     var name = properties["name"];
-     var personNameArray = name[0];
-     var personName = personNameArray["value"];
-
-     await stepContext.Context.SendActivityAsync(personName.ToString());
- }*/

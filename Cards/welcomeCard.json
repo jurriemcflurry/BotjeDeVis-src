@@ -13,7 +13,7 @@
       "spacing": "medium",
       "size": "default",
       "weight": "bolder",
-      "text": "Welkom! Ik ben Botje. Wat kan ik voor je doen?",
+      "text": "Welkom! Ik ben Botje.",
       "wrap": true,
       "maxLines": 0
     }

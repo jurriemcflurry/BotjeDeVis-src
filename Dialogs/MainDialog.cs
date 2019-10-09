@@ -10,6 +10,7 @@ using CoreBot.CognitiveModels;
 using CoreBot.Dialogs;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
+using Microsoft.Bot.Builder.Dialogs.Choices;
 using Microsoft.Bot.Schema;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -33,7 +34,9 @@ namespace Microsoft.BotBuilderSamples.Dialogs
             Logger = logger;
 
             AddDialog(new TextPrompt(nameof(TextPrompt)));
+            AddDialog(new ChoicePrompt(nameof(ChoicePrompt)));
             AddDialog(new OrdersDialog(configuration));
+            AddDialog(new ChangeOrderDialog(configuration));
             AddDialog(new ProductsDialog());
             AddDialog(new GreetingDialog());
             AddDialog(new NoneDialog());
@@ -54,9 +57,15 @@ namespace Microsoft.BotBuilderSamples.Dialogs
             if (!_luisRecognizer.IsConfigured)
             {
                 await stepContext.Context.SendActivityAsync(
-                    MessageFactory.Text("NOTE: LUIS is not configured. To enable all capabilities, add 'LuisAppId', 'LuisAPIKey' and 'LuisAPIHostName' to the appsettings.json file.", inputHint: InputHints.IgnoringInput), cancellationToken);
+                    MessageFactory.Text("Luis is offline. Maak hieronder je keuze om toch van mijn diensten gebruik te kunnen maken."));
 
-                return await stepContext.NextAsync(null, cancellationToken);
+                //keuzes voor als Luis niet beschikbaar is
+                return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions
+                {
+                    Prompt = MessageFactory.Text("Wat kan ik voor je doen?"),
+                    RetryPrompt = MessageFactory.Text("Probeer het nog een keer"),
+                    Choices = ChoiceFactory.ToChoices(new List<string> { "Product bestellen", "Bestelling wijzigen", "Annuleren" }) //annuleren nog niet uitgewerkt
+                }, cancellationToken);
             }
 
             // Use the text provided in FinalStepAsync or the default if it is the first time.
@@ -67,6 +76,27 @@ namespace Microsoft.BotBuilderSamples.Dialogs
 
         private async Task<DialogTurnResult> ActStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
+            try
+            {
+                FoundChoice choice = (FoundChoice)stepContext.Result;
+                if (choice != null)
+                {
+                    switch (choice.Index)
+                    {
+                        case 0:
+                            return await stepContext.BeginDialogAsync(nameof(OrdersDialog), cancellationToken);
+
+                        case 1:
+                            return await stepContext.BeginDialogAsync(nameof(ChangeOrderDialog), cancellationToken);
+                    }
+                }
+            }
+            catch
+            {
+
+            }
+            
+
             if (!_luisRecognizer.IsConfigured)
             {
                 // LUIS is not configured, feedback to user and Enddialog
@@ -90,6 +120,13 @@ namespace Microsoft.BotBuilderSamples.Dialogs
                 case LuisHelper.Intent.None:
                     return await stepContext.BeginDialogAsync(nameof(NoneDialog), cancellationToken);
 
+                case LuisHelper.Intent.changeOrder:
+                    return await stepContext.BeginDialogAsync(nameof(ChangeOrderDialog), cancellationToken);
+
+               // case LuisHelper.Intent.Retour:
+               // case LuisHelper.Intent.orderStatus:
+               // implementeren
+
                 default:
                     // Catch all for unhandled intents
                     var didntUnderstandMessageText = $"Sorry, Ik snap je niet helemaal. Kun je je vraag anders stellen? (intent was {luisResult.TopIntent().intent})";
@@ -107,7 +144,7 @@ namespace Microsoft.BotBuilderSamples.Dialogs
            
 
             // Restart the main dialog with a different message the second time around
-            var promptMessage = "Wat kan ik nog meer voor je doen?";
+            var promptMessage = "Kan ik iets anders voor je doen?";
             return await stepContext.ReplaceDialogAsync(InitialDialogId, promptMessage, cancellationToken);
         }
     }
