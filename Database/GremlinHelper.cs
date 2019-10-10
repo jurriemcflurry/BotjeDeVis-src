@@ -42,7 +42,7 @@ namespace CoreBot.Database
         {
             g = ConnectToDatabase();
 
-            //creeer order met ordernummer
+            //creeer order vertice met ordernummer
             string query = "g.addV('order').property('data','order').property('number','" + order.GetOrderNumber().ToString() + "')";
             var result = await g.SubmitAsync<dynamic>(query);
 
@@ -80,6 +80,22 @@ namespace CoreBot.Database
             }
 
             return false;
+        }
+
+        public async Task<bool> OrderExistsByNumber(int orderNumber)
+        {
+            g = ConnectToDatabase();
+            string orderExistsQuery = "g.V('order').has('number','" + orderNumber + "')";
+            var result = await g.SubmitAsync<dynamic>(orderExistsQuery);
+            var output = JsonConvert.SerializeObject(result);
+
+            if(output == "[]")
+            {
+                return false;
+            }
+
+
+            return true;
         }
 
         public async Task<string> AnswerQuestion(string onderwerp)

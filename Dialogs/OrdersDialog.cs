@@ -96,7 +96,25 @@ namespace CoreBot.Dialogs
             if(stepContext.Result != null)
             {
                 Product product = new Product(stepContext.Result.ToString()); //hele string wordt gepakt als product, kijken om te verbeteren (nog een Luis-call om entiteit te filteren)
-                productList.Add(product);
+
+                bool productExists = await gremlinHelper.ProductExists(product);
+
+                if (productExists)
+                {
+                    //zo ja, voeg toe aan de lijst
+                    productList.Add(product);
+                }
+                else
+                {
+                    //zo nee, helaas niet in assortiment
+                    await stepContext.Context.SendActivityAsync("Product " + product.GetProductName() + " is helaas niet in ons assortiment.");
+                }
+
+                // eindig deze dialoog als er alleen niet-bestaande producten worden gevraagd
+                if (productList == null)
+                {
+                    return await stepContext.EndDialogAsync();
+                }               
             }       
                      
             return await stepContext.NextAsync(cancellationToken);
@@ -128,15 +146,29 @@ namespace CoreBot.Dialogs
             {
                 //gekozen voor bevestigen, dus nu wordt de order aangemaakt
                 Random rnd = new Random();
-                int ordernumber = rnd.Next(1, 99999);
-                Order order = new Order(ordernumber, productList);
+                int orderNumber = rnd.Next(1, 99999);
 
+                //check if order exists
+                bool orderExists = await gremlinHelper.OrderExistsByNumber(orderNumber);
+
+                //maak een nieuw ordernummer als het nummer al bestaat
+                while (orderExists)
+                {
+                    orderNumber = rnd.Next(1, 99999);
+                    orderExists = await gremlinHelper.OrderExistsByNumber(orderNumber);
+                }
+
+                //nu ordernummer uniek is, maak orderobject aan;
+                Order order = new Order(orderNumber, productList);
+
+                //geef feedback aan de user over de order die wordt geplaatst
                 if (productList.Count > 0)
                 {
                     await stepContext.Context.SendActivityAsync("De volgende producten worden voor je besteld met ordernummer " + order.GetOrderNumber().ToString() + ":");
                     await stepContext.Context.SendActivityAsync(productListString);
                 }
 
+                //maak de call naar de database, en check of deze is gelukt
                 bool orderStored = await gremlinHelper.StoreOrder(order);
 
                 if (orderStored)
@@ -150,7 +182,7 @@ namespace CoreBot.Dialogs
             }
             else if(choice.Index == 1)
             {
-                return await stepContext.EndDialogAsync();
+                return await stepContext.NextAsync();
             }
 
             return await stepContext.NextAsync(null, cancellationToken);
@@ -158,6 +190,7 @@ namespace CoreBot.Dialogs
 
         private async Task<DialogTurnResult> FinalStep(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
+            //productlijst moet geleegd worden na gedane bestelling, zodat dit geen probleem oplevert bij een volgende order
             productList.Clear();
             return await stepContext.EndDialogAsync();
         }
