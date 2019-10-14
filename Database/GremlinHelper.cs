@@ -46,11 +46,6 @@ namespace CoreBot.Database
             string query = "g.addV('order').property('data','order').property('number','" + order.GetOrderNumber().ToString() + "')";
             var result = await g.SubmitAsync<dynamic>(query);
 
-            if (g.SubmitAsync<dynamic>(query).IsFaulted)
-            {
-                return false;
-            }
-
             //creeer edges tussen net gemaakt order, en de producten in de database adhv label = product & name = productName
             foreach (Product p in order.GetProducts())
             {
@@ -85,7 +80,7 @@ namespace CoreBot.Database
         public async Task<bool> OrderExistsByNumber(int orderNumber)
         {
             g = ConnectToDatabase();
-            string orderExistsQuery = "g.V('order').has('number','" + orderNumber + "')";
+            string orderExistsQuery = "g.V().hasLabel('order').has('number','" + orderNumber + "')";
             var result = await g.SubmitAsync<dynamic>(orderExistsQuery);
             var output = JsonConvert.SerializeObject(result);
 
@@ -96,6 +91,29 @@ namespace CoreBot.Database
 
 
             return true;
+        }
+
+        public async Task<List<Product>> GetOrderProducts(int orderNumber)
+        {
+            List<Product> productList = new List<Product>();
+            g = ConnectToDatabase();
+            string getOrderProductsQuery = "g.V().hasLabel('order').has('number','" + orderNumber + "').outE().hasLabel('contains_product').inV().dedup()";
+            var result = await g.SubmitAsync<dynamic>(getOrderProductsQuery);
+            var output = JsonConvert.SerializeObject(result);
+            var jsonArray = JArray.Parse(output);
+
+            for(int i = 0; i < jsonArray.Count; i++)
+            {
+                var jsonObj = (JObject)jsonArray[i];
+                var properties = (JObject)jsonObj["properties"];
+                var nameArray = (JArray)properties["name"];
+                var nameArray2 = (JObject)nameArray[0];
+                var name = nameArray2["value"].ToString();
+                Product p = new Product(name);
+                productList.Add(p);
+            }                             
+
+            return productList;
         }
 
         public async Task<string> AnswerQuestion(string onderwerp)

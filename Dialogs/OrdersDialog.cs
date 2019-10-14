@@ -24,17 +24,18 @@ namespace CoreBot.Dialogs
         private GremlinHelper gremlinHelper;
         private LuisHelper luisResult;
         private string[] productsString;
-        private List<Product> productList;
+        private List<Product> productList = new List<Product>();
         private string productListString = "Producten: ";
+        private IConfiguration configuration;
 
         public OrdersDialog(IConfiguration configuration) : base(nameof(OrdersDialog))
         {
+            this.configuration = configuration;
             //gremlinHelper om later snel met de database te kunnen werken
             gremlinHelper = new GremlinHelper(configuration);
 
             //voeg de dialogs toe
-            AddDialog(new TextPrompt(nameof(TextPrompt)));
-            AddDialog(new ChoicePrompt(nameof(ChoicePrompt)));
+
             AddDialog(new WaterfallDialog(nameof(WaterfallDialog), new WaterfallStep[]
             {
                 CheckForProducts,
@@ -49,10 +50,23 @@ namespace CoreBot.Dialogs
 
         private async Task<DialogTurnResult> CheckForProducts(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
-            luisResult = (LuisHelper)stepContext.Options;
-            productsString = luisResult.Entities.products;
-            productList = new List<Product>();
+            string entryType = stepContext.Options.GetType().ToString();
 
+            switch (entryType)
+            {
+                case "CoreBot.CognitiveModels.LuisHelper":
+                    luisResult = (LuisHelper)stepContext.Options;
+                    productsString = luisResult.Entities.products;
+                    break;
+                case "System.Collections.Generic.List`1[CoreBot.Models.Product]":
+                    var messageText = "Wat wil je bestellen?";
+                    var promptMessage = MessageFactory.Text(messageText, messageText, InputHints.ExpectingInput);
+                    return await stepContext.PromptAsync(nameof(TextPrompt), new PromptOptions { Prompt = promptMessage }, cancellationToken);
+                default:
+                    return await stepContext.NextAsync();
+            }
+                        
+           
             if (productsString != null)
             {
                 foreach (string p in productsString)
@@ -134,7 +148,7 @@ namespace CoreBot.Dialogs
             {
                 Prompt = MessageFactory.Text("Bevestig de bestelling"),
                 RetryPrompt = MessageFactory.Text("Probeer het nog een keer"),
-                Choices = ChoiceFactory.ToChoices(new List<string> { "Bevestigen", "Annuleren"})
+                Choices = ChoiceFactory.ToChoices(new List<string> { "Bevestigen", "Wijzigen", "Annuleren"})
             }, cancellationToken);
 
         }
@@ -149,13 +163,12 @@ namespace CoreBot.Dialogs
                 int orderNumber = rnd.Next(1, 99999);
 
                 //check if order exists
-                bool orderExists = await gremlinHelper.OrderExistsByNumber(orderNumber);
+                bool orderExists;
 
                 //maak een nieuw ordernummer als het nummer al bestaat
-                while (orderExists)
+                while (orderExists = await gremlinHelper.OrderExistsByNumber(orderNumber))
                 {
                     orderNumber = rnd.Next(1, 99999);
-                    orderExists = await gremlinHelper.OrderExistsByNumber(orderNumber);
                 }
 
                 //nu ordernummer uniek is, maak orderobject aan;
@@ -168,30 +181,36 @@ namespace CoreBot.Dialogs
                     await stepContext.Context.SendActivityAsync(productListString);
                 }
 
-                //maak de call naar de database, en check of deze is gelukt
-                bool orderStored = await gremlinHelper.StoreOrder(order);
-
-                if (orderStored)
+                try
                 {
+                    await gremlinHelper.StoreOrder(order);
                     await stepContext.Context.SendActivityAsync("Bestelling geslaagd! Bedankt voor het shoppen bij ons!");
                 }
-                else
+                catch
                 {
                     await stepContext.Context.SendActivityAsync("Het lukte helaas niet om je bestelling uit te voeren. Probeer het later opnieuw.");
                 }
+                
             }
             else if(choice.Index == 1)
+            {                
+                //overwegen om dit wellicht hier af te handelen
+                productListString = "Producten: ";
+                return await stepContext.ReplaceDialogAsync(nameof(ChangeOrderDialog), productList, cancellationToken);
+            }
+            else if(choice.Index == 2)
             {
                 return await stepContext.NextAsync();
             }
 
-            return await stepContext.NextAsync(null, cancellationToken);
+            return await stepContext.NextAsync();
         }
 
         private async Task<DialogTurnResult> FinalStep(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
             //productlijst moet geleegd worden na gedane bestelling, zodat dit geen probleem oplevert bij een volgende order
             productList.Clear();
+            productListString = "Producten: ";
             return await stepContext.EndDialogAsync();
         }
     }

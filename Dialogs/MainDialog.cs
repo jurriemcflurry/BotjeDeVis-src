@@ -125,6 +125,7 @@ namespace Microsoft.BotBuilderSamples.Dialogs
 
                // case LuisHelper.Intent.Retour:
                // case LuisHelper.Intent.orderStatus:
+               // case LuisHelper.Intent.Cancel;
                // implementeren
 
                 default:
