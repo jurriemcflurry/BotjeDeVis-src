@@ -41,24 +41,31 @@ namespace CoreBot.Database
         public async Task<bool> StoreOrder(Order order)
         {
             g = ConnectToDatabase();
+            string orderNumber = order.GetOrderNumber().ToString();
+            List<Product> productsToStore = order.GetProducts();
+            bool success = false;
 
             //creeer order vertice met ordernummer
-            string query = "g.addV('order').property('data','order').property('number','" + order.GetOrderNumber().ToString() + "')";
-            var result = await g.SubmitAsync<dynamic>(query);
+            string query = "g.addV('order').property('data','order').property('number','" + orderNumber + "')";
+            await g.SubmitAsync<dynamic>(query);
 
             //creeer edges tussen net gemaakt order, en de producten in de database adhv label = product & name = productName
-            foreach (Product p in order.GetProducts())
+            foreach (Product p in productsToStore)
             {
-                string query2 = "g.V().hasLabel('order').has('number','" + order.GetOrderNumber().ToString() + "').as('a').V().hasLabel('product').has('name','" + p.GetProductName() + "').as('b').addE('contains_product').from('a').to('b')";
-                var result2 = await g.SubmitAsync<dynamic>(query2);
-
-                if (g.SubmitAsync<dynamic>(query2).IsFaulted)
+                string query2 = "g.V().hasLabel('order').has('number','" + orderNumber + "').as('a').V().hasLabel('product').has('name','" + p.GetProductName() + "').as('b').addE('contains_product').from('a').to('b')";
+                var result = await g.SubmitAsync<dynamic>(query2);
+                var output = JsonConvert.SerializeObject(result);
+                if (output == "[]")
                 {
-                    return false;
+                    success = false;
+                }
+                else
+                {
+                    success = true;
                 }
             }
 
-            return true;
+            return success;
         }
 
         public async Task<bool> ProductExists(Product product)
@@ -116,20 +123,35 @@ namespace CoreBot.Database
             return productList;
         }
 
-        public async Task<string> AnswerQuestion(string onderwerp)
+        public async void RemoveProductFromOrder(Order order, Product product)
         {
             g = ConnectToDatabase();
-            string query = "g.V().hasLabel('vraag').has('onderwerp','" + onderwerp + "').outE().inV()";
-            var result = await g.SubmitAsync<dynamic>(query);
-            var output = JsonConvert.SerializeObject(result);
-            var jsonArray = JArray.Parse(output);
-            var jsonObj = (JObject)jsonArray[0];
-            var properties = (JObject)jsonObj["properties"];
-            var antwoordArray = (JArray)properties["antwoord"];
-            var antwoordArray2 = (JObject)antwoordArray[0];
-            string antwoord = antwoordArray2["value"].ToString();
+            string removeProductFromOrder = "g.V().hasLabel('order').has('number','" + order.GetOrderNumber() + "').outE().hasLabel('contains_product').where(inV().hasLabel('product').has('name','" + product.GetProductName() + "')).drop()";
+            await g.SubmitAsync<dynamic>(removeProductFromOrder);
 
-            return antwoord;
+            string checkIfOrderContainsProducts = "g.V().hasLabel('order').has('number','" + order.GetOrderNumber() + "').outE().hasLabel('contains_product')";
+            var result2 = await g.SubmitAsync<dynamic>(checkIfOrderContainsProducts);
+            var output = JsonConvert.SerializeObject(result2);
+
+            if(output == "[]")
+            {
+                RemoveOrder(order);
+            }
         }
+
+        public async void AddProductToOrder(Order order, Product product)
+        {
+            g = ConnectToDatabase();
+            string addProductToOrder = "g.V().hasLabel('order').has('number','" + order.GetOrderNumber() + "').as('a').V().hasLabel('product').has('name','" + product.GetProductName() + "').as('b').addE('contains_product').from('a').to('b')";
+            await g.SubmitAsync<dynamic>(addProductToOrder);
+        }
+
+        public async void RemoveOrder(Order order)
+        {
+            g = ConnectToDatabase();
+            string removeOrder = "g.V().hasLabel('order').has('number','" + order.GetOrderNumber() + "').drop()";
+            await g.SubmitAsync<dynamic>(removeOrder);
+        }
+    
     }
 }

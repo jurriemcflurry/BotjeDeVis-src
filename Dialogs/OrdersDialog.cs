@@ -27,6 +27,7 @@ namespace CoreBot.Dialogs
         private List<Product> productList = new List<Product>();
         private string productListString = "Producten: ";
         private IConfiguration configuration;
+        private Order order;
 
         public OrdersDialog(IConfiguration configuration) : base(nameof(OrdersDialog))
         {
@@ -41,7 +42,7 @@ namespace CoreBot.Dialogs
                 CheckForProducts,
                 AddProducts,
                 ConfirmOrder,
-                StoreOrder,
+                StoreOrder,                
                 FinalStep,
             }));
 
@@ -50,6 +51,9 @@ namespace CoreBot.Dialogs
 
         private async Task<DialogTurnResult> CheckForProducts(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
+            productList.Clear();
+            productListString = "Producten: ";
+
             string entryType = stepContext.Options.GetType().ToString();
 
             switch (entryType)
@@ -148,7 +152,7 @@ namespace CoreBot.Dialogs
             {
                 Prompt = MessageFactory.Text("Bevestig de bestelling"),
                 RetryPrompt = MessageFactory.Text("Probeer het nog een keer"),
-                Choices = ChoiceFactory.ToChoices(new List<string> { "Bevestigen", "Wijzigen", "Annuleren"})
+                Choices = ChoiceFactory.ToChoices(new List<string> { "Bevestigen", "Annuleren"})
             }, cancellationToken);
 
         }
@@ -156,25 +160,19 @@ namespace CoreBot.Dialogs
         private async Task<DialogTurnResult> StoreOrder(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
             FoundChoice choice = (FoundChoice)stepContext.Result;
-            if(choice.Index == 0)
+
+            if (choice.Index == 0)
             {
-                //gekozen voor bevestigen, dus nu wordt de order aangemaakt
                 Random rnd = new Random();
                 int orderNumber = rnd.Next(1, 99999);
 
-                //check if order exists
-                bool orderExists;
-
-                //maak een nieuw ordernummer als het nummer al bestaat
-                while (orderExists = await gremlinHelper.OrderExistsByNumber(orderNumber))
+                while (await gremlinHelper.OrderExistsByNumber(orderNumber))
                 {
                     orderNumber = rnd.Next(1, 99999);
                 }
 
-                //nu ordernummer uniek is, maak orderobject aan;
-                Order order = new Order(orderNumber, productList);
+                order = new Order(orderNumber, productList);
 
-                //geef feedback aan de user over de order die wordt geplaatst
                 if (productList.Count > 0)
                 {
                     await stepContext.Context.SendActivityAsync("De volgende producten worden voor je besteld met ordernummer " + order.GetOrderNumber().ToString() + ":");
@@ -183,35 +181,34 @@ namespace CoreBot.Dialogs
 
                 try
                 {
-                    await gremlinHelper.StoreOrder(order);
-                    await stepContext.Context.SendActivityAsync("Bestelling geslaagd! Bedankt voor het shoppen bij ons!");
+                    bool success = await gremlinHelper.StoreOrder(order);
+                    if (success)
+                    {
+                        await stepContext.Context.SendActivityAsync("Bestelling geslaagd! Bedankt voor het shoppen bij ons!");
+                    }
+                    else
+                    {
+                        await stepContext.Context.SendActivityAsync("Het lukte helaas niet om je bestelling uit te voeren. Probeer het later opnieuw.");
+                    }                    
                 }
                 catch
                 {
                     await stepContext.Context.SendActivityAsync("Het lukte helaas niet om je bestelling uit te voeren. Probeer het later opnieuw.");
                 }
-                
+
+                return await stepContext.NextAsync();
             }
-            else if(choice.Index == 1)
-            {                
-                //overwegen om dit wellicht hier af te handelen
-                productListString = "Producten: ";
-                return await stepContext.ReplaceDialogAsync(nameof(ChangeOrderDialog), productList, cancellationToken);
-            }
-            else if(choice.Index == 2)
-            {
+            else
+            {               
                 return await stepContext.NextAsync();
             }
 
-            return await stepContext.NextAsync();
         }
+
 
         private async Task<DialogTurnResult> FinalStep(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
-            //productlijst moet geleegd worden na gedane bestelling, zodat dit geen probleem oplevert bij een volgende order
-            productList.Clear();
-            productListString = "Producten: ";
-            return await stepContext.EndDialogAsync();
+        return await stepContext.EndDialogAsync();
         }
     }
 }
