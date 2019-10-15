@@ -46,7 +46,7 @@ namespace CoreBot.Database
             bool success = false;
 
             //creeer order vertice met ordernummer
-            string query = "g.addV('order').property('data','order').property('number','" + orderNumber + "')";
+            string query = "g.addV('order').property('data','order').property('number','" + orderNumber + "').property('status','received')";
             await g.SubmitAsync<dynamic>(query);
 
             //creeer edges tussen net gemaakt order, en de producten in de database adhv label = product & name = productName
@@ -151,6 +151,22 @@ namespace CoreBot.Database
             g = ConnectToDatabase();
             string removeOrder = "g.V().hasLabel('order').has('number','" + order.GetOrderNumber() + "').drop()";
             await g.SubmitAsync<dynamic>(removeOrder);
+        }
+
+        public async Task<string> GetOrderStatus(int orderNumber)
+        {
+            g = ConnectToDatabase();
+            string getOrderStatus = "g.V().hasLabel('order').has('number','" + orderNumber + "')";
+            var result = await g.SubmitAsync<dynamic>(getOrderStatus);
+            var output = JsonConvert.SerializeObject(result);
+            var orderArray = JArray.Parse(output);
+            var orderObject = (JObject)orderArray[0];
+            var properties = (JObject)orderObject["properties"];
+            var statusArray = (JArray)properties["status"];
+            var statusArray2 = (JObject)statusArray[0];
+            string status = statusArray2["value"].ToString();
+
+            return status;
         }
     
     }

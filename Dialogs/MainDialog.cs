@@ -3,10 +3,10 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CoreBot.CognitiveModels;
+using CoreBot.ConversationState;
 using CoreBot.Dialogs;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
@@ -14,36 +14,38 @@ using Microsoft.Bot.Builder.Dialogs.Choices;
 using Microsoft.Bot.Schema;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Microsoft.Recognizers.Text.DataTypes.TimexExpression;
 
 namespace Microsoft.BotBuilderSamples.Dialogs
 {
     public class MainDialog : ComponentDialog
     {
+        protected IStatePropertyAccessor<AuthenticationState> _authenticationState;
         private readonly WebshopRecognizer _luisRecognizer;
         protected readonly ILogger Logger;
         private LuisHelper luisResult;
         private IConfiguration configuration;
 
         // Dependency injection uses this constructor to instantiate MainDialog
-        public MainDialog(WebshopRecognizer luisRecognizer, ILogger<MainDialog> logger, IConfiguration configuration)
+        public MainDialog(WebshopRecognizer luisRecognizer, ILogger<MainDialog> logger, IConfiguration configuration, ConversationState state)
             : base(nameof(MainDialog))
         {
             this.configuration = configuration;
             _luisRecognizer = luisRecognizer;
             Logger = logger;
+            _authenticationState = state.CreateProperty<AuthenticationState>(nameof(AuthenticationState));
 
             AddDialog(new TextPrompt(nameof(TextPrompt)));
             AddDialog(new ChoicePrompt(nameof(ChoicePrompt)));
             AddDialog(new OrdersDialog(configuration));
             AddDialog(new ChangeOrderDialog(configuration));
-            AddDialog(new OrderStatusDialog());
+            AddDialog(new OrderStatusDialog(configuration));
             AddDialog(new ProductsDialog());
             AddDialog(new GreetingDialog());
             AddDialog(new NoneDialog());
             AddDialog(new CancelAndHelpDialog(nameof(CancelAndHelpDialog)));
             AddDialog(new WaterfallDialog(nameof(WaterfallDialog), new WaterfallStep[]
             {
+                PromptStepAsync,
                 IntroStepAsync,
                 ActStepAsync,
                 FinalStepAsync,
@@ -51,6 +53,14 @@ namespace Microsoft.BotBuilderSamples.Dialogs
 
             // The initial child Dialog to run.
             InitialDialogId = nameof(WaterfallDialog);
+        }
+
+        private async Task<DialogTurnResult> PromptStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        {
+            //let the user login
+            //save username in UserProfile
+            //set Authenticationstate.authenticated = true;
+            return await stepContext.NextAsync();
         }
 
         private async Task<DialogTurnResult> IntroStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
