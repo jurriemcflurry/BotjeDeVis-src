@@ -21,30 +21,30 @@ namespace CoreBot.Dialogs
         {
             gremlinHelper = new GremlinHelper(configuration);
             AddDialog(new WaterfallDialog(nameof(WaterfallDialog), new WaterfallStep[]{
-                GetOrderNumber,
-                CheckOrderStatus,
-                FinalStep,
+                GetOrderNumberAsync,
+                CheckOrderStatusAsync,
+                FinalStepAsync,
             }));
 
             InitialDialogId = nameof(WaterfallDialog);
         }
 
-        private async Task<DialogTurnResult> GetOrderNumber(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        private async Task<DialogTurnResult> GetOrderNumberAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
             var messageText = "Wat is het ordernummer? Dan ga ik voor je op zoek.";
             var promptMessage = MessageFactory.Text(messageText, messageText, InputHints.ExpectingInput);
             return await stepContext.PromptAsync(nameof(TextPrompt), new PromptOptions { Prompt = promptMessage }, cancellationToken);
         }
 
-        private async Task<DialogTurnResult> CheckOrderStatus(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        private async Task<DialogTurnResult> CheckOrderStatusAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
             int orderNumber = Int32.Parse((string)stepContext.Result);
-            string status = await gremlinHelper.GetOrderStatus(orderNumber);
+            string status = await gremlinHelper.GetOrderStatusAsync(orderNumber);
             await stepContext.Context.SendActivityAsync("De status van je order is dat deze door ons is: " + status);
             return await stepContext.NextAsync();
         }
 
-        private async Task<DialogTurnResult> FinalStep(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        private async Task<DialogTurnResult> FinalStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
             return await stepContext.EndDialogAsync();
         }

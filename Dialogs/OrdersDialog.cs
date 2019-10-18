@@ -19,10 +19,14 @@ using System.Threading.Tasks;
 
 namespace CoreBot.Dialogs
 {
+
+    //het toevoegen van producten aan de lijst moet een loop worden, zodat je meerdere producten kunt bestellen en niet na 1 product stopt
+    //wellicht de stap addProducts in een andere dialog, waar geloopt kan worden tot het wordt bevestigd. Daarna terugkeren naar de juiste stap in deze dialog
+    //of optie te beginnen met andere dialoog om producten in een loop toe te voegen, en alleen de volledige lijst mee te geven naar deze dialog
     public class OrdersDialog : CancelAndHelpDialog
     {
         private GremlinHelper gremlinHelper;
-        private LuisHelper luisResult;
+        private LuisHelper luisResult = null;
         private string[] productsString;
         private List<Product> productList = new List<Product>();
         private string productListString = "Producten: ";
@@ -36,110 +40,77 @@ namespace CoreBot.Dialogs
             gremlinHelper = new GremlinHelper(configuration);
 
             //voeg de dialogs toe
-
+            AddDialog(new TextPrompt(nameof(TextPrompt)));
+            AddDialog(new ChoicePrompt(nameof(ChoicePrompt)));
+            AddDialog(new AddProductsToOrderDialog(configuration));
             AddDialog(new WaterfallDialog(nameof(WaterfallDialog), new WaterfallStep[]
             {
-                CheckForProducts,
-                AddProducts,
-                ConfirmOrder,
-                StoreOrder,                
-                FinalStep,
+                CheckForProductsAsync,
+                ConfirmOrderAsync,
+                StoreOrderAsync,                
+                FinalStepAsync,
             }));
 
             InitialDialogId = nameof(WaterfallDialog);
         }
 
-        private async Task<DialogTurnResult> CheckForProducts(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        private async Task<DialogTurnResult> CheckForProductsAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
-            productList.Clear();
-            productListString = "Producten: ";
-
-            string entryType = stepContext.Options.GetType().ToString();
-
-            switch (entryType)
+            if(luisResult == null && productList.Count == 0)
             {
-                case "CoreBot.CognitiveModels.LuisHelper":
-                    luisResult = (LuisHelper)stepContext.Options;
-                    productsString = luisResult.Entities.products;
-                    break;
-                case "System.Collections.Generic.List`1[CoreBot.Models.Product]":
-                    var messageText = "Wat wil je bestellen?";
-                    var promptMessage = MessageFactory.Text(messageText, messageText, InputHints.ExpectingInput);
-                    return await stepContext.PromptAsync(nameof(TextPrompt), new PromptOptions { Prompt = promptMessage }, cancellationToken);
-                default:
-                    return await stepContext.NextAsync();
-            }
-                        
-           
-            if (productsString != null)
-            {
-                foreach (string p in productsString)
+                luisResult = (LuisHelper)stepContext.Options;
+                productsString = luisResult.Entities.products;
+
+                if (productsString != null)
                 {
-                    Product product = new Product(p);
-                    
-                    //kijk of het product een bestaand product is in de database                   
-                    bool productExists = await gremlinHelper.ProductExists(product);
-
-                    if (productExists)
-                    {                        
-                        //zo ja, voeg toe aan de lijst
-                        productList.Add(product);
-                    }
-                    else
+                    foreach (string p in productsString)
                     {
-                        //zo nee, helaas niet in assortiment
-                        await stepContext.Context.SendActivityAsync("Product " + p + " is helaas niet in ons assortiment.");                       
+                        Product product = new Product(p);
+
+                        //kijk of het product een bestaand product is in de database                   
+                        bool productExists = await gremlinHelper.ProductExistsAsync(product);
+
+                        if (productExists)
+                        {
+                            //zo ja, voeg toe aan de lijst
+                            productList.Add(product);
+                        }
+                        else
+                        {
+                            //zo nee, helaas niet in assortiment
+                            await stepContext.Context.SendActivityAsync("Product " + p + " is helaas niet in ons assortiment.");
+                        }
+
+                        // eindig deze dialoog als er alleen niet-bestaande producten worden gevraagd
+                        if (productList == null)
+                        {
+                            return await stepContext.EndDialogAsync();
+                        }
                     }
-
-                    // eindig deze dialoog als er alleen niet-bestaande producten worden gevraagd
-                    if(productList == null)
-                    {
-                        return await stepContext.EndDialogAsync();
-                    }
-                }
-            }
-            else
-            {
-                var messageText = "Wat wil je bestellen?";
-                var promptMessage = MessageFactory.Text(messageText, messageText, InputHints.ExpectingInput);
-                return await stepContext.PromptAsync(nameof(TextPrompt), new PromptOptions { Prompt = promptMessage }, cancellationToken);
-            }
-            
-            return await stepContext.NextAsync();
-        }
-
-        private async Task<DialogTurnResult> AddProducts(WaterfallStepContext stepContext, CancellationToken cancellationToken)
-        {
-            //als er resultaat meekomt, betekent dit dat er in de vorige stap een product is gevraagd. Deze wordt hier aan de lijst toegevoegd.
-            if(stepContext.Result != null)
-            {
-                Product product = new Product(stepContext.Result.ToString()); //hele string wordt gepakt als product, kijken om te verbeteren (nog een Luis-call om entiteit te filteren)
-
-                bool productExists = await gremlinHelper.ProductExists(product);
-
-                if (productExists)
-                {
-                    //zo ja, voeg toe aan de lijst
-                    productList.Add(product);
+                    return await stepContext.BeginDialogAsync(nameof(AddProductsToOrderDialog), productList, cancellationToken);
                 }
                 else
                 {
-                    //zo nee, helaas niet in assortiment
-                    await stepContext.Context.SendActivityAsync("Product " + product.GetProductName() + " is helaas niet in ons assortiment.");
+                    return await stepContext.BeginDialogAsync(nameof(AddProductsToOrderDialog), productList, cancellationToken);
                 }
-
-                // eindig deze dialoog als er alleen niet-bestaande producten worden gevraagd
-                if (productList == null)
-                {
-                    return await stepContext.EndDialogAsync();
-                }               
-            }       
-                     
-            return await stepContext.NextAsync(cancellationToken);
+            }
+            else
+            {                
+                return await stepContext.NextAsync();
+            }
+            
         }
 
-        private async Task<DialogTurnResult> ConfirmOrder(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        private async Task<DialogTurnResult> ConfirmOrderAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
+            productList = (List<Product>)stepContext.Options;
+
+            // eindig deze dialoog als er alleen niet-bestaande producten worden gevraagd
+            if (productList == null)
+            {
+                return await stepContext.EndDialogAsync();
+            }
+
             await stepContext.Context.SendActivityAsync("De volgende producten staan in je bestelling:");
             foreach (Product product in productList)
             {
@@ -157,7 +128,7 @@ namespace CoreBot.Dialogs
 
         }
 
-        private async Task<DialogTurnResult> StoreOrder(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        private async Task<DialogTurnResult> StoreOrderAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
             FoundChoice choice = (FoundChoice)stepContext.Result;
 
@@ -166,22 +137,19 @@ namespace CoreBot.Dialogs
                 Random rnd = new Random();
                 int orderNumber = rnd.Next(1, 99999);
 
-                while (await gremlinHelper.OrderExistsByNumber(orderNumber))
+                while (await gremlinHelper.OrderExistsByNumberAsync(orderNumber))
                 {
                     orderNumber = rnd.Next(1, 99999);
                 }
 
                 order = new Order(orderNumber, productList);
-
-                if (productList.Count > 0)
-                {
-                    await stepContext.Context.SendActivityAsync("De volgende producten worden voor je besteld met ordernummer " + order.GetOrderNumber().ToString() + ":");
-                    await stepContext.Context.SendActivityAsync(productListString);
-                }
-
+          
+                await stepContext.Context.SendActivityAsync("De volgende producten worden voor je besteld met ordernummer " + order.GetOrderNumber().ToString() + ":");
+                await stepContext.Context.SendActivityAsync(productListString);
+                
                 try
                 {
-                    bool success = await gremlinHelper.StoreOrder(order);
+                    bool success = await gremlinHelper.StoreOrderAsync(order);
                     if (success)
                     {
                         await stepContext.Context.SendActivityAsync("Bestelling geslaagd! Bedankt voor het shoppen bij ons!");
@@ -205,8 +173,7 @@ namespace CoreBot.Dialogs
 
         }
 
-
-        private async Task<DialogTurnResult> FinalStep(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        private async Task<DialogTurnResult> FinalStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
         return await stepContext.EndDialogAsync();
         }

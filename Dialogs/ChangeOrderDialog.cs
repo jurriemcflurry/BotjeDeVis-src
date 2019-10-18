@@ -32,33 +32,33 @@ namespace CoreBot.Dialogs
 
             AddDialog(new WaterfallDialog(nameof(WaterfallDialog), new WaterfallStep[]
             {
-                AskForOrderNumber,
-                GetProducts,
-                ChangeOrder,
-                ActChangeOrder,
-                AddOrDeleteProductFromOrder,
-                FinishDialog,
+                AskForOrderNumberAsync,
+                GetProductsAsync,
+                ChangeOrderAsync,
+                ActChangeOrderAsync,
+                AddOrDeleteProductFromOrderAsync,
+                FinishDialogAsync,
             }));
 
             InitialDialogId = nameof(WaterfallDialog);
         }
 
-        private async Task<DialogTurnResult> AskForOrderNumber(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        private async Task<DialogTurnResult> AskForOrderNumberAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
             var messageText = "Wat is je ordernummer?";
             var promptMessage = MessageFactory.Text(messageText, messageText, InputHints.ExpectingInput);
             return await stepContext.PromptAsync(nameof(TextPrompt), new PromptOptions { Prompt = promptMessage }, cancellationToken);
         }
         
-        private async Task<DialogTurnResult> GetProducts(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        private async Task<DialogTurnResult> GetProductsAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
             string stepResult = (string)stepContext.Result;
             int orderNumber = Int32.Parse(stepResult);
-            bool orderExists = await gremlinHelper.OrderExistsByNumber(orderNumber);
+            bool orderExists = await gremlinHelper.OrderExistsByNumberAsync(orderNumber);
 
             if (orderExists)
             {
-                orderProducts = await gremlinHelper.GetOrderProducts(orderNumber);                              
+                orderProducts = await gremlinHelper.GetOrderProductsAsync(orderNumber);                              
             }
             else
             {
@@ -71,7 +71,7 @@ namespace CoreBot.Dialogs
             return await stepContext.NextAsync();
         }
 
-        private async Task<DialogTurnResult> ChangeOrder(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        private async Task<DialogTurnResult> ChangeOrderAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {                      
             return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions { 
             Prompt = MessageFactory.Text("Wil je een product toevoegen of verwijderen?"),
@@ -79,7 +79,7 @@ namespace CoreBot.Dialogs
             }, cancellationToken);
         }
 
-        private async Task<DialogTurnResult> ActChangeOrder(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        private async Task<DialogTurnResult> ActChangeOrderAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
             FoundChoice choice = (FoundChoice)stepContext.Result;
             whatToDo = choice.Value.ToString();
@@ -111,7 +111,7 @@ namespace CoreBot.Dialogs
             return await stepContext.NextAsync();
         }
 
-        private async Task<DialogTurnResult> AddOrDeleteProductFromOrder(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        private async Task<DialogTurnResult> AddOrDeleteProductFromOrderAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {           
             if (whatToDo != "Toevoegen")
             {
@@ -123,7 +123,7 @@ namespace CoreBot.Dialogs
                     if (p.GetProductName().Equals(productFound))
                     {
                         products.Remove(p);
-                        gremlinHelper.RemoveProductFromOrder(order, p);
+                        await gremlinHelper.RemoveProductFromOrderAsync(order, p);
                         await stepContext.Context.SendActivityAsync("Product " + productFound + " is verwijderd uit uw bestelling.");
                         return await stepContext.NextAsync();
                     }
@@ -133,7 +133,7 @@ namespace CoreBot.Dialogs
             {
                 productFound = (string)stepContext.Result;
                 product = new Product(productFound);
-                bool productExists = await gremlinHelper.ProductExists(product);
+                bool productExists = await gremlinHelper.ProductExistsAsync(product);
 
                 if (productExists)
                 {
@@ -164,7 +164,7 @@ namespace CoreBot.Dialogs
             return await stepContext.NextAsync();
         }     
 
-        private async Task<DialogTurnResult> FinishDialog(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        private async Task<DialogTurnResult> FinishDialogAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
             FoundChoice choice = (FoundChoice)stepContext.Result;
             if(choice.Index == 0)

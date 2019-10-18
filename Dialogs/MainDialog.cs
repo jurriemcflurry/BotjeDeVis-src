@@ -38,6 +38,7 @@ namespace Microsoft.BotBuilderSamples.Dialogs
             AddDialog(new ChoicePrompt(nameof(ChoicePrompt)));
             AddDialog(new OrdersDialog(configuration));
             AddDialog(new ChangeOrderDialog(configuration));
+            AddDialog(new AddProductsToOrderDialog(configuration));
             AddDialog(new OrderStatusDialog(configuration));
             AddDialog(new ProductsDialog());
             AddDialog(new GreetingDialog());

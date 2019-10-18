@@ -19,7 +19,7 @@ namespace Microsoft.BotBuilderSamples.Dialogs
         public DateResolverDialog(string id = null)
             : base(id ?? nameof(DateResolverDialog))
         {
-            AddDialog(new DateTimePrompt(nameof(DateTimePrompt), DateTimePromptValidator));
+            AddDialog(new DateTimePrompt(nameof(DateTimePrompt), DateTimePromptValidatorAsync));
             AddDialog(new WaterfallDialog(nameof(WaterfallDialog), new WaterfallStep[]
             {
                 InitialStepAsync,
@@ -69,7 +69,7 @@ namespace Microsoft.BotBuilderSamples.Dialogs
             return await stepContext.EndDialogAsync(timex, cancellationToken);
         }
 
-        private static Task<bool> DateTimePromptValidator(PromptValidatorContext<IList<DateTimeResolution>> promptContext, CancellationToken cancellationToken)
+        private static Task<bool> DateTimePromptValidatorAsync(PromptValidatorContext<IList<DateTimeResolution>> promptContext, CancellationToken cancellationToken)
         {
             if (promptContext.Recognized.Succeeded)
             {

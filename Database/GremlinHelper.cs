@@ -38,7 +38,7 @@ namespace CoreBot.Database
             return gremlinClient;
         }
 
-        public async Task<bool> StoreOrder(Order order)
+        public async Task<bool> StoreOrderAsync(Order order)
         {
             g = ConnectToDatabase();
             string orderNumber = order.GetOrderNumber().ToString();
@@ -68,7 +68,7 @@ namespace CoreBot.Database
             return success;
         }
 
-        public async Task<bool> ProductExists(Product product)
+        public async Task<bool> ProductExistsAsync(Product product)
         {
             g = ConnectToDatabase();
             string query = "g.V().hasLabel('product').has('name','" + product.GetProductName() + "')";
@@ -84,7 +84,7 @@ namespace CoreBot.Database
             return false;
         }
 
-        public async Task<bool> OrderExistsByNumber(int orderNumber)
+        public async Task<bool> OrderExistsByNumberAsync(int orderNumber)
         {
             g = ConnectToDatabase();
             string orderExistsQuery = "g.V().hasLabel('order').has('number','" + orderNumber + "')";
@@ -100,7 +100,7 @@ namespace CoreBot.Database
             return true;
         }
 
-        public async Task<List<Product>> GetOrderProducts(int orderNumber)
+        public async Task<List<Product>> GetOrderProductsAsync(int orderNumber)
         {
             List<Product> productList = new List<Product>();
             g = ConnectToDatabase();
@@ -123,7 +123,7 @@ namespace CoreBot.Database
             return productList;
         }
 
-        public async void RemoveProductFromOrder(Order order, Product product)
+        public async Task RemoveProductFromOrderAsync(Order order, Product product)
         {
             g = ConnectToDatabase();
             string removeProductFromOrder = "g.V().hasLabel('order').has('number','" + order.GetOrderNumber() + "').outE().hasLabel('contains_product').where(inV().hasLabel('product').has('name','" + product.GetProductName() + "')).drop()";
@@ -153,7 +153,7 @@ namespace CoreBot.Database
             await g.SubmitAsync<dynamic>(removeOrder);
         }
 
-        public async Task<string> GetOrderStatus(int orderNumber)
+        public async Task<string> GetOrderStatusAsync(int orderNumber)
         {
             g = ConnectToDatabase();
             string getOrderStatus = "g.V().hasLabel('order').has('number','" + orderNumber + "')";
