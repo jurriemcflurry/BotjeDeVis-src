@@ -39,15 +39,25 @@ namespace CoreBot.Dialogs
 
         private async Task<DialogTurnResult> AskForProductsAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
-            productList = (List<Product>)stepContext.Options;           
+            productList = (List<Product>)stepContext.Options;  
+            
+            if(productList.Count > 0)
+            {
+                string producten = "";
 
-            //prompt springt opeens terug naar parentdialog, ipv naar volgende waterfallstep?
-            //probleem treedt alleen op met choiceprompt, niet met bijv textprompt
-            // wellicht VS update
+                foreach(Product p in productList)
+                {
+                    producten += p.GetProductName() + ", ";
+                }
+                producten = producten.Remove(producten.Length - 2);
+                await stepContext.Context.SendActivityAsync("In je bestelling staan nu de volgende producten: " + producten + ".");
+            }
+
+            //choice prompt does not go to next waterfallstep, instead returns to parent dialog
+            //does work in other dialogs
             return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions
             {
                 Prompt = MessageFactory.Text("Wil je nog een product toevoegen of verwijderen?"),
-                RetryPrompt = MessageFactory.Text("Probeer het nog een keer"),
                 Choices = ChoiceFactory.ToChoices(new List<string> { "Toevoegen", "Verwijderen", "Klaar met bestellen" })
             }, cancellationToken);
         }

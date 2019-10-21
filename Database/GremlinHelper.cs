@@ -168,6 +168,15 @@ namespace CoreBot.Database
 
             return status;
         }
+
+        public async Task<string> GetProductInformationAsync(Product p)
+        {
+            g = ConnectToDatabase();
+            string getProductInformationQuery = "g.V().hasLabel('product').has('name','" + p.GetProductName() + "').properties('productinfo').value()";
+            var result = await g.SubmitAsync<dynamic>(getProductInformationQuery);
+            var output = JsonConvert.SerializeObject(result);
+            return output;
+        }
     
     }
 }
