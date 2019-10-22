@@ -23,13 +23,11 @@ namespace Microsoft.BotBuilderSamples.Dialogs
         private readonly WebshopRecognizer _luisRecognizer;
         protected readonly ILogger Logger;
         private LuisHelper luisResult;
-        private IConfiguration configuration;
 
         // Dependency injection uses this constructor to instantiate MainDialog
         public MainDialog(WebshopRecognizer luisRecognizer, ILogger<MainDialog> logger, IConfiguration configuration, ConversationState state)
             : base(nameof(MainDialog))
         {
-            this.configuration = configuration;
             _luisRecognizer = luisRecognizer;
             Logger = logger;
             _authenticationState = state.CreateProperty<AuthenticationState>(nameof(AuthenticationState));
@@ -119,7 +117,7 @@ namespace Microsoft.BotBuilderSamples.Dialogs
             luisResult = await _luisRecognizer.RecognizeAsync<LuisHelper>(stepContext.Context, cancellationToken);
             switch (luisResult.TopIntent().intent)
             {
-                case LuisHelper.Intent.Orders:                                      
+                case LuisHelper.Intent.Orders:                   
                     return await stepContext.BeginDialogAsync(nameof(OrdersDialog), luisResult, cancellationToken);
                 
                 case LuisHelper.Intent.Greeting:

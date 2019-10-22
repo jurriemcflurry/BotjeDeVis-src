@@ -15,14 +15,14 @@ namespace CoreBot.Dialogs
             AddDialog(new TextPrompt(nameof(TextPrompt)));
             AddDialog(new WaterfallDialog(nameof(WaterfallDialog), new WaterfallStep[]
             {
-                ConfirmGreetingIntent,
+                ConfirmGreetingIntentAsync,
                 FinalStepAsync,
             }));
 
             InitialDialogId = nameof(WaterfallDialog);
         }
 
-        private async Task<DialogTurnResult> ConfirmGreetingIntent(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        private async Task<DialogTurnResult> ConfirmGreetingIntentAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
             var confirmOrdersIntent = "Hi, leuk je te zien!";
 

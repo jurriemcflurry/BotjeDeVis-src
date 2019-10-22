@@ -18,7 +18,7 @@ namespace CoreBot.Dialogs
     {
         private GremlinHelper gremlinHelper;
         private List<Product> productList = new List<Product>();
-        private bool toevoegen;
+        private bool toevoegen = true;
         private string productListString = "Producten: ";
 
         public AddProductsToOrderDialog(IConfiguration configuration) : base(nameof(AddProductsToOrderDialog))
@@ -30,6 +30,7 @@ namespace CoreBot.Dialogs
             AddDialog(new WaterfallDialog(nameof(WaterfallDialog), new WaterfallStep[]
             {
                 AskForProductsAsync,
+                PromptQuestionAsync,
                 HandleChoiceAsync,
                 UpdateProductListAsync,
             }));
@@ -52,9 +53,12 @@ namespace CoreBot.Dialogs
                 producten = producten.Remove(producten.Length - 2);
                 await stepContext.Context.SendActivityAsync("In je bestelling staan nu de volgende producten: " + producten + ".");
             }
+            return await stepContext.NextAsync();
+        }
 
-            //choice prompt does not go to next waterfallstep, instead returns to parent dialog
-            //does work in other dialogs
+        // after this step, it just returns to the previous step instead of moving forward, and then ends this dialog
+        private async Task<DialogTurnResult> PromptQuestionAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        {
             return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions
             {
                 Prompt = MessageFactory.Text("Wil je nog een product toevoegen of verwijderen?"),
@@ -63,34 +67,35 @@ namespace CoreBot.Dialogs
         }
 
         private async Task<DialogTurnResult> HandleChoiceAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
-        {
-            FoundChoice choice = (FoundChoice)stepContext.Result;
-            switch (choice.Index)
-            {
-                case 0:
-                    toevoegen = true;
-                    var messageText = "Welk product wil je toevoegen?";
-                    var promptMessage = MessageFactory.Text(messageText, messageText, InputHints.ExpectingInput);
-                    return await stepContext.PromptAsync(nameof(TextPrompt), new PromptOptions { Prompt = promptMessage }, cancellationToken);
-                case 1:
-                    toevoegen = false;
-                    List<string> productsString = new List<string>();
-                    foreach (Product p in productList)
-                    {
-                        productsString.Add(p.GetProductName());
-                    }
-                    return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions
-                    {
-                        Prompt = MessageFactory.Text("Welk product wil je verwijderen?"),
-                        Choices = ChoiceFactory.ToChoices(productsString)
-                    }, cancellationToken);
-                case 2:
-                    return await stepContext.EndDialogAsync(productList);
-                default:
-                    break;
+        {       
+                FoundChoice choice = (FoundChoice)stepContext.Result;
+                switch (choice.Index)
+                {
+                    case 0:
+                        toevoegen = true;
+                        var messageText = "Welk product wil je toevoegen?";
+                        var promptMessage = MessageFactory.Text(messageText, messageText, InputHints.ExpectingInput);
+                        return await stepContext.PromptAsync(nameof(TextPrompt), new PromptOptions { Prompt = promptMessage }, cancellationToken);
+                    case 1:
+                        toevoegen = false;
+                        List<string> productsString = new List<string>();
+                        foreach (Product p in productList)
+                        {
+                            productsString.Add(p.GetProductName());
+                        }
+                        return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions
+                        {
+                            Prompt = MessageFactory.Text("Welk product wil je verwijderen?"),
+                            Choices = ChoiceFactory.ToChoices(productsString)
+                        }, cancellationToken);
+                    case 2:
+                        return await stepContext.EndDialogAsync(productList);
+                    default:
+                        break;
 
+                
             }
-
+            
             return await stepContext.NextAsync();
         }
 

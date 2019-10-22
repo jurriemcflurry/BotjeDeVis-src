@@ -171,7 +171,7 @@ namespace CoreBot.Dialogs
             {
                 try
                 {
-                    gremlinHelper.AddProductToOrder(order, product);
+                    await gremlinHelper.AddProductToOrderAsync(order, product);
                     await stepContext.Context.SendActivityAsync("Bestelling geslaagd! Nogmaals bedankt voor het shoppen bij ons!");
                 }
                 catch

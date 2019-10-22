@@ -30,12 +30,10 @@ namespace CoreBot.Dialogs
         private string[] productsString;
         private List<Product> productList = new List<Product>();
         private string productListString = "Producten: ";
-        private IConfiguration configuration;
         private Order order;
 
         public OrdersDialog(IConfiguration configuration) : base(nameof(OrdersDialog))
         {
-            this.configuration = configuration;
             //gremlinHelper om later snel met de database te kunnen werken
             gremlinHelper = new GremlinHelper(configuration);
 
@@ -103,7 +101,7 @@ namespace CoreBot.Dialogs
 
         private async Task<DialogTurnResult> ConfirmOrderAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
-            productList = (List<Product>)stepContext.Options;
+           // productList = (List<Product>)stepContext.Options;
 
             // eindig deze dialoog als er alleen niet-bestaande producten worden gevraagd
             if (productList == null)

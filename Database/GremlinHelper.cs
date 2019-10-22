@@ -135,18 +135,18 @@ namespace CoreBot.Database
 
             if(output == "[]")
             {
-                RemoveOrder(order);
+                await RemoveOrderAsync(order);
             }
         }
 
-        public async void AddProductToOrder(Order order, Product product)
+        public async Task AddProductToOrderAsync(Order order, Product product)
         {
             g = ConnectToDatabase();
             string addProductToOrder = "g.V().hasLabel('order').has('number','" + order.GetOrderNumber() + "').as('a').V().hasLabel('product').has('name','" + product.GetProductName() + "').as('b').addE('contains_product').from('a').to('b')";
             await g.SubmitAsync<dynamic>(addProductToOrder);
         }
 
-        public async void RemoveOrder(Order order)
+        public async Task RemoveOrderAsync(Order order)
         {
             g = ConnectToDatabase();
             string removeOrder = "g.V().hasLabel('order').has('number','" + order.GetOrderNumber() + "').drop()";

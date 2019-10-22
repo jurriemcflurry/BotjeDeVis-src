@@ -36,15 +36,7 @@ namespace Microsoft.BotBuilderSamples
             services.AddSingleton<WebshopRecognizer>();
 
             // Register the dialogs here.
-            services.AddSingleton<AddProductsToOrderDialog>();
-            services.AddSingleton<CancelAndHelpDialog>();
-            services.AddSingleton<ChangeOrderDialog>();
-            services.AddSingleton<DateResolverDialog>();
-            services.AddSingleton<GreetingDialog>();
-            services.AddSingleton<NoneDialog>();
-            services.AddSingleton<OrdersDialog>();
-            services.AddSingleton<OrderStatusDialog>();
-            services.AddSingleton<ProductsDialog>();
+
 
             // The MainDialog that will be run by the bot.
             services.AddSingleton<MainDialog>();
