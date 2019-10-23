@@ -19,10 +19,6 @@ using System.Threading.Tasks;
 
 namespace CoreBot.Dialogs
 {
-
-    //het toevoegen van producten aan de lijst moet een loop worden, zodat je meerdere producten kunt bestellen en niet na 1 product stopt
-    //wellicht de stap addProducts in een andere dialog, waar geloopt kan worden tot het wordt bevestigd. Daarna terugkeren naar de juiste stap in deze dialog
-    //of optie te beginnen met andere dialoog om producten in een loop toe te voegen, en alleen de volledige lijst mee te geven naar deze dialog
     public class OrdersDialog : CancelAndHelpDialog
     {
         private GremlinHelper gremlinHelper;
@@ -35,13 +31,11 @@ namespace CoreBot.Dialogs
 
         public OrdersDialog(IConfiguration configuration) : base(nameof(OrdersDialog))
         {
-            //gremlinHelper om later snel met de database te kunnen werken
+            // gremlinHelper to handle databaseinteraction
             gremlinHelper = new GremlinHelper(configuration);
 
-            //voeg de dialogs toe
             AddDialog(new TextPrompt(nameof(TextPrompt)));
             AddDialog(new ChoicePrompt(nameof(ChoicePrompt)));
-            AddDialog(new AddProductsToOrderDialog(configuration));
             AddDialog(new WaterfallDialog(nameof(WaterfallDialog), new WaterfallStep[]
             {
                 CheckForProductsAsync,
@@ -56,6 +50,7 @@ namespace CoreBot.Dialogs
             InitialDialogId = nameof(WaterfallDialog);
         }
 
+        //check for already mentioned products; either coming in with the luisResult from the MainDialog, or the productlist from a previous iteration
         private async Task<DialogTurnResult> CheckForProductsAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
             productListString = "";
@@ -98,6 +93,7 @@ namespace CoreBot.Dialogs
             
         }
 
+        //ask the user what they want to do with the current order that is in process
         private async Task<DialogTurnResult> PromptQuestionAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
             return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions
@@ -107,6 +103,7 @@ namespace CoreBot.Dialogs
             }, cancellationToken);
         }
 
+        //handle the user input, and act accordingly
         private async Task<DialogTurnResult> HandleChoiceAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
             FoundChoice choice = (FoundChoice)stepContext.Result;
@@ -135,6 +132,8 @@ namespace CoreBot.Dialogs
             return await stepContext.NextAsync();
         }
 
+        //update the producylist by either adding an extra product, or removing selected product.
+        //skip to confirmOrder in case the user selected they are done with their order
         private async Task<DialogTurnResult> UpdateProductListAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
             if (whatToDo.Equals("Toevoegen"))
@@ -183,6 +182,7 @@ namespace CoreBot.Dialogs
             return await stepContext.ReplaceDialogAsync(nameof(OrdersDialog), productList, cancellationToken);
         }
 
+        //ask the user to confirm their order
         private async Task<DialogTurnResult> ConfirmOrderAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
             await stepContext.Context.SendActivityAsync("De volgende producten staan in je bestelling:");
@@ -202,6 +202,7 @@ namespace CoreBot.Dialogs
 
         }
 
+        //if confirmed, store the order in the database
         private async Task<DialogTurnResult> StoreOrderAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
             FoundChoice choice = (FoundChoice)stepContext.Result;
@@ -247,6 +248,7 @@ namespace CoreBot.Dialogs
 
         }
 
+        //clear the productlist in case this dialog is needed again, and return to the point the MainDailog left off
         private async Task<DialogTurnResult> FinalStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
             productList.Clear();
