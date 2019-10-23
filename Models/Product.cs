@@ -21,6 +21,8 @@ namespace CoreBot.Models
             this.productName = productName;
         }
 
+        public Product() { }
+
         public string GetProductName()
         {
             return productName;

@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 
 namespace CoreBot.Dialogs
 {
+    // NO LONGER IN USE
     public class AddProductsToOrderDialog : CancelAndHelpDialog
     {
         private GremlinHelper gremlinHelper;
@@ -110,12 +111,10 @@ namespace CoreBot.Dialogs
 
                 if (productExists)
                 {
-                    //zo ja, voeg toe aan de lijst
                     productList.Add(product);                   
                 }
                 else
                 {
-                    //zo nee, helaas niet in assortiment
                     await stepContext.Context.SendActivityAsync("Product " + product.GetProductName() + " is helaas niet in ons assortiment.");
                 }
             }

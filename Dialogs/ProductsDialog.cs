@@ -36,10 +36,6 @@ namespace CoreBot.Dialogs
             InitialDialogId = nameof(WaterfallDialog);
         }
 
-        //Hier moet het product worden opgehaald waar een vraag over is, of anders worden gevraagd over welk product een vraag is
-        //vervolgens moet de info over dat product worden getoond
-        //uitzoeken of alles getoond wordt, of dat specifieke info ook uit de tekst gehaald kan worden (bijv entiteit ' status' over de beschikbaarheid)
-
         private async Task<DialogTurnResult> ConfirmProductsIntentAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
             luisResult = (LuisHelper)stepContext.Options;
@@ -68,11 +64,14 @@ namespace CoreBot.Dialogs
         {
             foreach(Product p in productList)
             {
-                //to do
-                productInfo = await gremlinHelper.GetProductInformationAsync(p); //strip first and last char, strip " chars, break line at ,
-                //koelkast: [“Kleur: wit”,“Energielabel: B”] -> output example
+                productInfo = await gremlinHelper.GetProductInformationAsync(p);
+                productInfo = productInfo.Replace("[", string.Empty);
+                productInfo = productInfo.Replace("]", string.Empty);
+                productInfo = productInfo.Replace('"', ' ');
+                productInfo = productInfo.Replace(",", Environment.NewLine);
                 await stepContext.Context.SendActivityAsync("Daarover heb ik de volgende informatie:");
-                await stepContext.Context.SendActivityAsync(p.GetProductName() + ": " + productInfo);
+                string productName = p.GetProductName().First().ToString().ToUpper() + p.GetProductName().Substring(1);
+                await stepContext.Context.SendActivityAsync(productName + ":" + Environment.NewLine + productInfo);
             }
 
             return await stepContext.NextAsync();
@@ -80,6 +79,9 @@ namespace CoreBot.Dialogs
 
         private async Task<DialogTurnResult> FinalStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
+            productListString = "";
+            productInfo = "";
+            productList.Clear();
             return await stepContext.EndDialogAsync();
         }
     }

@@ -31,6 +31,7 @@ namespace CoreBot.Dialogs
         private List<Product> productList = new List<Product>();
         private string productListString = "Producten: ";
         private Order order;
+        private string whatToDo = "";
 
         public OrdersDialog(IConfiguration configuration) : base(nameof(OrdersDialog))
         {
@@ -44,6 +45,9 @@ namespace CoreBot.Dialogs
             AddDialog(new WaterfallDialog(nameof(WaterfallDialog), new WaterfallStep[]
             {
                 CheckForProductsAsync,
+                PromptQuestionAsync,
+                HandleChoiceAsync,
+                UpdateProductListAsync,
                 ConfirmOrderAsync,
                 StoreOrderAsync,                
                 FinalStepAsync,
@@ -54,7 +58,9 @@ namespace CoreBot.Dialogs
 
         private async Task<DialogTurnResult> CheckForProductsAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
-            if(luisResult == null && productList.Count == 0)
+            productListString = "";
+
+            if (luisResult == null && productList.Count == 0)
             {
                 luisResult = (LuisHelper)stepContext.Options;
                 productsString = luisResult.Entities.products;
@@ -64,51 +70,121 @@ namespace CoreBot.Dialogs
                     foreach (string p in productsString)
                     {
                         Product product = new Product(p);
-
-                        //kijk of het product een bestaand product is in de database                   
+                 
                         bool productExists = await gremlinHelper.ProductExistsAsync(product);
 
                         if (productExists)
                         {
-                            //zo ja, voeg toe aan de lijst
                             productList.Add(product);
                         }
                         else
                         {
-                            //zo nee, helaas niet in assortiment
                             await stepContext.Context.SendActivityAsync("Product " + p + " is helaas niet in ons assortiment.");
                         }
-
-                        // eindig deze dialoog als er alleen niet-bestaande producten worden gevraagd
-                        if (productList == null)
-                        {
-                            return await stepContext.EndDialogAsync();
-                        }
                     }
-                    return await stepContext.BeginDialogAsync(nameof(AddProductsToOrderDialog), productList, cancellationToken);
+
+                    return await stepContext.NextAsync();
                 }
-                else
+                else 
                 {
-                    return await stepContext.BeginDialogAsync(nameof(AddProductsToOrderDialog), productList, cancellationToken);
+                    return await stepContext.NextAsync();
                 }
             }
             else
-            {                
+            {
+                productList = (List<Product>)stepContext.Options;
                 return await stepContext.NextAsync();
             }
             
         }
 
-        private async Task<DialogTurnResult> ConfirmOrderAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        private async Task<DialogTurnResult> PromptQuestionAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
-           // productList = (List<Product>)stepContext.Options;
-
-            // eindig deze dialoog als er alleen niet-bestaande producten worden gevraagd
-            if (productList == null)
+            return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions
             {
-                return await stepContext.EndDialogAsync();
+                Prompt = MessageFactory.Text("Wil je nog een product toevoegen of verwijderen?"),
+                Choices = ChoiceFactory.ToChoices(new List<string> { "Toevoegen", "Verwijderen", "Klaar met bestellen" })
+            }, cancellationToken);
+        }
+
+        private async Task<DialogTurnResult> HandleChoiceAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        {
+            FoundChoice choice = (FoundChoice)stepContext.Result;
+            whatToDo = choice.Value;
+            switch (choice.Index)
+            {
+                case 0:                   
+                    var messageText = "Welk product wil je toevoegen?";
+                    var promptMessage = MessageFactory.Text(messageText, messageText, InputHints.ExpectingInput);
+                    return await stepContext.PromptAsync(nameof(TextPrompt), new PromptOptions { Prompt = promptMessage }, cancellationToken);
+                case 1:
+                    List<string> productsString = new List<string>();
+                    foreach (Product p in productList)
+                    {
+                        productsString.Add(p.GetProductName());
+                    }
+                    return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions
+                    {
+                        Prompt = MessageFactory.Text("Welk product wil je verwijderen?"),
+                        Choices = ChoiceFactory.ToChoices(productsString)
+                    }, cancellationToken);
+                case 2:
+                    return await stepContext.NextAsync();
             }
 
+            return await stepContext.NextAsync();
+        }
+
+        private async Task<DialogTurnResult> UpdateProductListAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        {
+            if (whatToDo.Equals("Toevoegen"))
+            {
+                string productName = (string)stepContext.Result;
+                Product product = new Product(productName); //hele string wordt gepakt als product, kijken om te verbeteren (bijv nog een Luis-call om entiteit te filteren)
+
+                bool productExists = await gremlinHelper.ProductExistsAsync(product);
+
+                if (productExists)
+                {
+                    productList.Add(product);
+                }
+                else
+                {
+                    await stepContext.Context.SendActivityAsync("Product " + product.GetProductName() + " is helaas niet in ons assortiment.");
+                }
+            }
+            else if (whatToDo.Equals("Verwijderen"))
+            {
+                FoundChoice choice = (FoundChoice)stepContext.Result;
+                string productFound = choice.Value.ToString();
+
+                foreach (Product p in productList)
+                {
+                    if (p.GetProductName().Equals(productFound))
+                    {
+                        productList.Remove(p);
+                        await stepContext.Context.SendActivityAsync("Product " + productFound + " is verwijderd uit uw bestelling.");
+                        break;
+                    }
+                }
+            }
+            else 
+            {
+                return await stepContext.NextAsync();
+            }
+
+            await stepContext.Context.SendActivityAsync("De volgende producten staan nu in je bestelling:");
+            foreach (Product p in productList)
+            {
+                productListString += p.GetProductName() + ", ";
+            }
+            productListString = productListString.Remove(productListString.Length - 2);
+            await stepContext.Context.SendActivityAsync(productListString);
+            return await stepContext.ReplaceDialogAsync(nameof(OrdersDialog), productList, cancellationToken);
+        }
+
+        private async Task<DialogTurnResult> ConfirmOrderAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        {
             await stepContext.Context.SendActivityAsync("De volgende producten staan in je bestelling:");
             foreach (Product product in productList)
             {
@@ -173,7 +249,8 @@ namespace CoreBot.Dialogs
 
         private async Task<DialogTurnResult> FinalStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
-        return await stepContext.EndDialogAsync();
+            productList.Clear();
+            return await stepContext.EndDialogAsync();
         }
     }
 }
