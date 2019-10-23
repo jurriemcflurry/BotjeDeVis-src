@@ -7,6 +7,7 @@ using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Builder.Dialogs.Choices;
 using Microsoft.Bot.Schema;
+using Microsoft.BotBuilderSamples;
 using Microsoft.BotBuilderSamples.Dialogs;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
@@ -14,6 +15,7 @@ using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -28,11 +30,15 @@ namespace CoreBot.Dialogs
         private string productListString = "Producten: ";
         private Order order;
         private string whatToDo = "";
+        private readonly WebshopRecognizer _luisRecognizer;
 
-        public OrdersDialog(IConfiguration configuration) : base(nameof(OrdersDialog))
+        public OrdersDialog(IConfiguration configuration, WebshopRecognizer luisRecognizer) : base(nameof(OrdersDialog))
         {
             // gremlinHelper to handle databaseinteraction
             gremlinHelper = new GremlinHelper(configuration);
+
+            //luisRecognizer for making LUIS calls
+            _luisRecognizer = luisRecognizer;
 
             AddDialog(new TextPrompt(nameof(TextPrompt)));
             AddDialog(new ChoicePrompt(nameof(ChoicePrompt)));
@@ -64,7 +70,8 @@ namespace CoreBot.Dialogs
                 {
                     foreach (string p in productsString)
                     {
-                        Product product = new Product(p);
+                        string newProduct = Regex.Replace(p, " ", string.Empty);
+                        Product product = new Product(newProduct);
                  
                         bool productExists = await gremlinHelper.ProductExistsAsync(product);
 
@@ -138,19 +145,25 @@ namespace CoreBot.Dialogs
         {
             if (whatToDo.Equals("Toevoegen"))
             {
-                string productName = (string)stepContext.Result;
-                Product product = new Product(productName); //hele string wordt gepakt als product, kijken om te verbeteren (bijv nog een Luis-call om entiteit te filteren)
+                // call luis to filter the entities from the input
+                luisResult = await _luisRecognizer.RecognizeAsync<LuisHelper>(stepContext.Context, cancellationToken);
+                string[] productsAsked = luisResult.Entities.products;
 
-                bool productExists = await gremlinHelper.ProductExistsAsync(product);
+                for(int i = 0; i < productsAsked.Length; i++)
+                {
+                    string newProductName = Regex.Replace(productsAsked[i], " ", string.Empty);
+                    Product product = new Product(newProductName);
+                    bool productExists = await gremlinHelper.ProductExistsAsync(product);
 
-                if (productExists)
-                {
-                    productList.Add(product);
-                }
-                else
-                {
-                    await stepContext.Context.SendActivityAsync("Product " + product.GetProductName() + " is helaas niet in ons assortiment.");
-                }
+                    if (productExists)
+                    {
+                        productList.Add(product);
+                    }
+                    else
+                    {
+                        await stepContext.Context.SendActivityAsync("Product " + product.GetProductName() + " is helaas niet in ons assortiment.");
+                    }
+                }       
             }
             else if (whatToDo.Equals("Verwijderen"))
             {
@@ -185,6 +198,12 @@ namespace CoreBot.Dialogs
         //ask the user to confirm their order
         private async Task<DialogTurnResult> ConfirmOrderAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
+            if(productList.Count == 0)
+            {
+                await stepContext.Context.SendActivityAsync("Er staan geen producten in je lijst");
+                return await stepContext.NextAsync();
+            }
+
             await stepContext.Context.SendActivityAsync("De volgende producten staan in je bestelling:");
             foreach (Product product in productList)
             {
@@ -205,6 +224,11 @@ namespace CoreBot.Dialogs
         //if confirmed, store the order in the database
         private async Task<DialogTurnResult> StoreOrderAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
+            if (productList.Count == 0)
+            {
+                return await stepContext.NextAsync();
+            }
+
             FoundChoice choice = (FoundChoice)stepContext.Result;
 
             if (choice.Index == 0)
@@ -252,6 +276,7 @@ namespace CoreBot.Dialogs
         private async Task<DialogTurnResult> FinalStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
             productList.Clear();
+            luisResult = null;
             return await stepContext.EndDialogAsync();
         }
     }

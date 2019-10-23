@@ -34,7 +34,7 @@ namespace Microsoft.BotBuilderSamples.Dialogs
 
             AddDialog(new TextPrompt(nameof(TextPrompt)));
             AddDialog(new ChoicePrompt(nameof(ChoicePrompt)));
-            AddDialog(new OrdersDialog(configuration));
+            AddDialog(new OrdersDialog(configuration, luisRecognizer));
             AddDialog(new ChangeOrderDialog(configuration));
             AddDialog(new OrderStatusDialog(configuration));
             AddDialog(new ProductsDialog(configuration));
