@@ -52,7 +52,9 @@ namespace CoreBot.Dialogs
                 HandleChoiceAsync,
                 UpdateProductListAsync,
                 ConfirmOrderAsync,
-                StoreOrderAsync,                
+                StoreOrderAsync,
+                RequestPaymentAsync,
+                ActOnPaymentAsync,
                 FinalStepAsync,
             }));
 
@@ -240,7 +242,9 @@ namespace CoreBot.Dialogs
         {
             if (productList.Count == 0)
             {
-                return await stepContext.NextAsync();
+                productList.Clear();
+                luisResult = null;
+                return await stepContext.EndDialogAsync();
             }
 
             FoundChoice choice = (FoundChoice)stepContext.Result;
@@ -265,25 +269,69 @@ namespace CoreBot.Dialogs
                     bool success = await gremlinHelper.StoreOrderAsync(order);
                     if (success)
                     {
-                        await stepContext.Context.SendActivityAsync("Bestelling geslaagd! Bedankt voor het shoppen bij ons!");
+                        return await stepContext.NextAsync();
+                        
                     }
                     else
                     {
                         await stepContext.Context.SendActivityAsync("Het lukte helaas niet om je bestelling uit te voeren. Probeer het later opnieuw.");
+                        productList.Clear();
+                        luisResult = null;
+                        return await stepContext.EndDialogAsync();
                     }                    
                 }
                 catch
                 {
                     await stepContext.Context.SendActivityAsync("Het lukte helaas niet om je bestelling uit te voeren. Probeer het later opnieuw.");
+                    productList.Clear();
+                    luisResult = null;
+                    return await stepContext.EndDialogAsync();
+                }
+            }
+            else
+            {
+                productList.Clear();
+                luisResult = null;
+                return await stepContext.EndDialogAsync();
+            }
+
+        }
+
+        private async Task<DialogTurnResult> RequestPaymentAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        {
+            return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions
+            {
+                Prompt = MessageFactory.Text("Bevestig de betaling"),
+                RetryPrompt = MessageFactory.Text("Probeer het nog een keer"),
+                Choices = ChoiceFactory.ToChoices(new List<string> { "Bevestigen", "Annuleren" })
+            }, cancellationToken);
+        }
+
+        private async Task<DialogTurnResult> ActOnPaymentAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        {
+            FoundChoice choice = (FoundChoice)stepContext.Result;
+
+            if(choice.Index == 0)
+            {
+                bool paymentSuccessful = await gremlinHelper.PayOrderAsync(order);
+
+                if (paymentSuccessful)
+                {
+                    await stepContext.Context.SendActivityAsync("Bestelling geslaagd! Bedankt voor het shoppen bij ons!");
+                }
+                else
+                {
+                    await stepContext.Context.SendActivityAsync("Het lukte helaas niet om de betaling uit te voeren. Probeer het later opnieuw. (Ordernummer is " + order.GetOrderNumber().ToString() + ")");
                 }
 
                 return await stepContext.NextAsync();
             }
             else
-            {               
-                return await stepContext.NextAsync();
+            {
+                await stepContext.Context.SendActivityAsync("Betaling geannuleerd. Ordernummer is " + order.GetOrderNumber().ToString());
             }
 
+            return await stepContext.NextAsync();
         }
 
         //clear the productlist in case this dialog is needed again, and return to the point the MainDailog left off

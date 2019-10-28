@@ -46,7 +46,7 @@ namespace CoreBot.Database
             bool success = false;
 
             //creeer order vertice met ordernummer
-            string query = "g.addV('order').property('data','order').property('number','" + orderNumber + "').property('status','received')";
+            string query = "g.addV('order').property('data','order').property('number','" + orderNumber + "').property('status','awaiting payment')";
             await g.SubmitAsync<dynamic>(query);
 
             //creeer edges tussen net gemaakt order, en de producten in de database adhv label = product & name = productName
@@ -66,6 +66,23 @@ namespace CoreBot.Database
             }
 
             return success;
+        }
+
+        public async Task<bool> PayOrderAsync(Order order)
+        {
+            g = ConnectToDatabase();
+            string orderNumber = order.GetOrderNumber().ToString();
+            string updateOrderStatusToPaid = "g.V().hasLabel('order').has('number','" + orderNumber + "').property('status','payment received')";
+            var result = await g.SubmitAsync<dynamic>(updateOrderStatusToPaid);
+            string output = JsonConvert.SerializeObject(result);
+          
+            if (output != "[]")
+            {
+                return true;
+            }
+
+            return false;
+
         }
 
         public async Task<bool> ProductExistsAsync(string productName)
