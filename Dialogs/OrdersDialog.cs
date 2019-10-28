@@ -30,6 +30,9 @@ namespace CoreBot.Dialogs
         private string productListString = "Producten: ";
         private Order order;
         private string whatToDo = "";
+        private List<string> productTypeList = new List<string>();
+        private string productInfoOutput = "";
+        private string productInfoForCard = "";
         private readonly WebshopRecognizer _luisRecognizer;
 
         public OrdersDialog(IConfiguration configuration, WebshopRecognizer luisRecognizer) : base(nameof(OrdersDialog))
@@ -70,18 +73,29 @@ namespace CoreBot.Dialogs
                 {
                     foreach (string p in productsString)
                     {
-                        string newProduct = Regex.Replace(p, " ", string.Empty);
-                        Product product = new Product(newProduct);
+                        string newProduct = Regex.Replace(p, " ", string.Empty);                        
                  
-                        bool productExists = await gremlinHelper.ProductExistsAsync(product);
+                        bool productExists = await gremlinHelper.ProductExistsAsync(newProduct);
 
                         if (productExists)
                         {
+                            Product product = new Product(newProduct);
                             productList.Add(product);
                         }
                         else
                         {
-                            await stepContext.Context.SendActivityAsync("Product " + p + " is helaas niet in ons assortiment.");
+                            
+                            bool productTypeExists = await gremlinHelper.ProductTypeExistsAsync(newProduct);
+
+                            if (productTypeExists)
+                            {
+                                //info over product (proberen deze dialog te eindigen en productdialog te starten?)
+                                await stepContext.Context.SendActivityAsync("Hier wordt de info over dit type product getoond (dit wordt nog geimplementeerd!)");
+                            }
+                            else
+                            {
+                                await stepContext.Context.SendActivityAsync("Product " + newProduct + " is helaas niet in ons assortiment.");
+                            }
                         }
                     }
 
@@ -105,7 +119,7 @@ namespace CoreBot.Dialogs
         {
             return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions
             {
-                Prompt = MessageFactory.Text("Wil je nog een product toevoegen of verwijderen?"),
+                Prompt = MessageFactory.Text("Wil je een product toevoegen of verwijderen?"),
                 Choices = ChoiceFactory.ToChoices(new List<string> { "Toevoegen", "Verwijderen", "Klaar met bestellen" })
             }, cancellationToken);
         }
@@ -151,17 +165,17 @@ namespace CoreBot.Dialogs
 
                 for(int i = 0; i < productsAsked.Length; i++)
                 {
-                    string newProductName = Regex.Replace(productsAsked[i], " ", string.Empty);
-                    Product product = new Product(newProductName);
-                    bool productExists = await gremlinHelper.ProductExistsAsync(product);
+                    string newProductName = Regex.Replace(productsAsked[i], " ", string.Empty);                   
+                    bool productExists = await gremlinHelper.ProductExistsAsync(newProductName);
 
                     if (productExists)
                     {
+                        Product product = new Product(newProductName);
                         productList.Add(product);
                     }
                     else
                     {
-                        await stepContext.Context.SendActivityAsync("Product " + product.GetProductName() + " is helaas niet in ons assortiment.");
+                        await stepContext.Context.SendActivityAsync("Product " + newProductName + " is helaas niet in ons assortiment.");
                     }
                 }       
             }

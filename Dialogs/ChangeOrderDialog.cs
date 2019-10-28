@@ -132,11 +132,12 @@ namespace CoreBot.Dialogs
             else
             {
                 productFound = (string)stepContext.Result;
-                product = new Product(productFound);
-                bool productExists = await gremlinHelper.ProductExistsAsync(product);
+                
+                bool productExists = await gremlinHelper.ProductExistsAsync(productFound);
 
                 if (productExists)
                 {
+                    product = new Product(productFound);
                     products.Add(product);
                     await stepContext.Context.SendActivityAsync("De volgende producten staan nu in je bestelling:");
                     foreach (Product p in products)
@@ -157,7 +158,7 @@ namespace CoreBot.Dialogs
                 else
                 {
                     //zo nee, helaas niet in assortiment
-                    await stepContext.Context.SendActivityAsync("Product " + product.GetProductName() + " is helaas niet in ons assortiment.");
+                    await stepContext.Context.SendActivityAsync("Product " + productFound + " is helaas niet in ons assortiment.");
                 }
             }
 

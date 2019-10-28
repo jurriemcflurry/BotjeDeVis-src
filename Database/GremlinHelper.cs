@@ -68,10 +68,10 @@ namespace CoreBot.Database
             return success;
         }
 
-        public async Task<bool> ProductExistsAsync(Product product)
+        public async Task<bool> ProductExistsAsync(string productName)
         {
             g = ConnectToDatabase();
-            string query = "g.V().hasLabel('product').has('name','" + product.GetProductName() + "')";
+            string query = "g.V().hasLabel('product').has('name','" + productName + "')";
             var result = await g.SubmitAsync<dynamic>(query);
             string output = JsonConvert.SerializeObject(result);
 
@@ -172,10 +172,35 @@ namespace CoreBot.Database
         public async Task<string> GetProductInformationAsync(Product p)
         {
             g = ConnectToDatabase();
-            string getProductInformationQuery = "g.V().hasLabel('product').has('name','" + p.GetProductName() + "').properties('productinfo').value()";
+            string getProductInformationQuery = "g.V().hasLabel('product').has('type','" + p.GetProductName() + "').properties('productinfo').value()";
             var result = await g.SubmitAsync<dynamic>(getProductInformationQuery);
             var output = JsonConvert.SerializeObject(result);
             return output;
+        }
+
+        public async Task<string> GetProductInformationPerTypeAsync(string type)
+        {
+            g = ConnectToDatabase();          
+            string getProductsPerTypeQuery = "g.V().hasLabel('product').has('type','" + type + "')";
+            var result = await g.SubmitAsync<dynamic>(getProductsPerTypeQuery);
+            var output = JsonConvert.SerializeObject(result);
+           
+            return output;
+        }
+
+        public async Task<bool> ProductTypeExistsAsync(string type)
+        {
+            g = ConnectToDatabase();
+            string getProductsPerTypeQuery = "g.V().hasLabel('product').has('type','" + type + "')";
+            var result = await g.SubmitAsync<dynamic>(getProductsPerTypeQuery);
+            var output = JsonConvert.SerializeObject(result);
+
+            if (output == "[]")
+            {
+                return false;
+            }
+
+            return true;
         }
     
     }

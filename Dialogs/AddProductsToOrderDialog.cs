@@ -104,18 +104,19 @@ namespace CoreBot.Dialogs
         {
             if (toevoegen)
             {
-                string productName = (string)stepContext.Result;
-                Product product = new Product(productName); //hele string wordt gepakt als product, kijken om te verbeteren (nog een Luis-call om entiteit te filteren)
+                string productName = (string)stepContext.Result; //hele string wordt gepakt als product, kijken om te verbeteren (nog een Luis-call om entiteit te filteren)
+                
 
-                bool productExists = await gremlinHelper.ProductExistsAsync(product);
+                bool productExists = await gremlinHelper.ProductExistsAsync(productName);
 
                 if (productExists)
                 {
+                    Product product = new Product(productName);
                     productList.Add(product);                   
                 }
                 else
                 {
-                    await stepContext.Context.SendActivityAsync("Product " + product.GetProductName() + " is helaas niet in ons assortiment.");
+                    await stepContext.Context.SendActivityAsync("Product " + productName + " is helaas niet in ons assortiment.");
                 }
             }
             else if (!toevoegen)

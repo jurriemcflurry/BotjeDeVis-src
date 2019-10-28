@@ -9,11 +9,19 @@ namespace CoreBot.Models
     {
         private string productName;
         private int productNumber;
+        private List<string> productInfo;
 
-        public Product(string productName,int productNumber)
+        public Product(string productName,int productNumber, List<string> productInfo)
         {
             this.productName = productName;
             this.productNumber = productNumber;
+            this.productInfo = productInfo;
+        }
+
+        public Product(string productName, List<string> productInfo)
+        {
+            this.productName = productName;
+            this.productInfo = productInfo;
         }
 
         public Product(string productName)
@@ -31,6 +39,11 @@ namespace CoreBot.Models
         public int GetProductNumber()
         {
             return productNumber;
+        }
+
+        public List<string> getProductInfo()
+        {
+            return productInfo;
         }
     }
 }

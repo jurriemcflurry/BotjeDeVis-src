@@ -1,9 +1,12 @@
 ﻿using CoreBot.CognitiveModels;
 using CoreBot.Database;
 using CoreBot.Models;
+using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
+using Microsoft.Bot.Schema;
 using Microsoft.BotBuilderSamples.Dialogs;
 using Microsoft.Extensions.Configuration;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,10 +19,11 @@ namespace CoreBot.Dialogs
     public class ProductsDialog : CancelAndHelpDialog
     {
         private LuisHelper luisResult = null;
-        private List<Product> productList = new List<Product>();
-        private string productListString = "";
+        private List<string> productTypeList = new List<string>();
+        private string productInfoOutput = "";
+        private string productInfoForCard;
         private GremlinHelper gremlinHelper;
-        private string productInfo = "";
+        private List<string> productInfo = new List<string>();
 
         public ProductsDialog(IConfiguration configuration) : base(nameof(ProductsDialog))
         {
@@ -39,49 +43,67 @@ namespace CoreBot.Dialogs
         private async Task<DialogTurnResult> ConfirmProductsIntentAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
             luisResult = (LuisHelper)stepContext.Options;
-            string[] products = luisResult.Entities.products;           
+            string[] productTypes = luisResult.Entities.products;           
 
-            for(int i = 0; i < products.Length; i++)
+            for(int i = 0; i < productTypes.Length; i++)
             {
-                string product = products[i];
-                string newProducts = Regex.Replace(product, " ", string.Empty);               
-                Product p = new Product(newProducts);
-                productList.Add(p);
+                string productType = productTypes[i];
+                string newProductType = Regex.Replace(productType, " ", string.Empty);               
+                productTypeList.Add(newProductType);
             }
-
-            foreach(Product p in productList)
-            {
-                productListString += p.GetProductName() + " en ";
-            }
-            productListString = productListString.Remove(productListString.Length - 4);
-
-            string confirmProductQuestion = "Ik begrijp dat je een vraag hebt over " + productListString + ".";
-            await stepContext.Context.SendActivityAsync(confirmProductQuestion);
+            
             return await stepContext.NextAsync(null, cancellationToken);
         }
 
         private async Task<DialogTurnResult> GiveInformationAboutProductsAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
-            foreach(Product p in productList)
+            var attachments = new List<Attachment>();
+            var reply = MessageFactory.Attachment(attachments);
+            reply.AttachmentLayout = AttachmentLayoutTypes.Carousel;
+
+            foreach (string type in productTypeList)
             {
-                productInfo = await gremlinHelper.GetProductInformationAsync(p);
-                productInfo = productInfo.Replace("[", string.Empty);
-                productInfo = productInfo.Replace("]", string.Empty);
-                productInfo = productInfo.Replace('"', ' ');
-                productInfo = productInfo.Replace(",", Environment.NewLine);
-                await stepContext.Context.SendActivityAsync("Daarover heb ik de volgende informatie:");
-                string productName = p.GetProductName().First().ToString().ToUpper() + p.GetProductName().Substring(1);
-                await stepContext.Context.SendActivityAsync(productName + ":" + Environment.NewLine + productInfo);
+                productInfoOutput = await gremlinHelper.GetProductInformationPerTypeAsync(type);
+
+                List<string> productInfoList = new List<string>();
+                var productArray = JArray.Parse(productInfoOutput);
+
+                for (int i = 0; i < productArray.Count; i++)
+                {
+                    productInfoList.Clear();
+                    productInfoForCard = "";
+                    var product = (JObject)productArray[i];
+                    var properties = (JObject)product["properties"];
+                    var productInfo = (JArray)properties["productinfo"];
+                    var productName = (JArray)properties["name"];
+                    var productName2 = (JObject)productName[0];
+                    var productNameValue = productName2["value"];
+
+                    for (int j = 0; j < productInfo.Count; j++)
+                    {
+                        var productInfo2 = (JObject)productInfo[j];
+                        var productInfoValue = productInfo2["value"];
+                        productInfoList.Add(productInfoValue.ToString());
+                    }
+
+                    foreach(string info in productInfoList)
+                    {
+                        productInfoForCard += info + Environment.NewLine;
+                    }
+
+                    Product p = new Product(productNameValue.ToString(), productInfoList);
+                    reply.Attachments.Add(Cards.GetThumbnailCard(p.GetProductName(), productInfoForCard).ToAttachment());
+                }                            
             }
 
+            await stepContext.Context.SendActivityAsync(reply, cancellationToken);
             return await stepContext.NextAsync();
         }
 
         private async Task<DialogTurnResult> FinalStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
-            productListString = "";
-            productInfo = "";
-            productList.Clear();
+            productInfo.Clear();
+            productTypeList.Clear();
             return await stepContext.EndDialogAsync();
         }
     }
