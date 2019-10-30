@@ -68,10 +68,10 @@ namespace CoreBot.Database
             return success;
         }
 
-        public async Task<bool> PayOrderAsync(Order order)
+        public async Task<bool> PayOrderAsync(int orderNumber)
         {
             g = ConnectToDatabase();
-            string orderNumber = order.GetOrderNumber().ToString();
+            string orderNumberString = orderNumber.ToString();
             string updateOrderStatusToPaid = "g.V().hasLabel('order').has('number','" + orderNumber + "').property('status','payment received')";
             var result = await g.SubmitAsync<dynamic>(updateOrderStatusToPaid);
             string output = JsonConvert.SerializeObject(result);
@@ -82,7 +82,14 @@ namespace CoreBot.Database
             }
 
             return false;
+        }
 
+        public async Task SetOrderPartiallyPaidAsync(int orderNumber)
+        {
+            g = ConnectToDatabase();
+            string orderNumberString = orderNumber.ToString();
+            string setOrderPartiallyPaid = "g.V().hasLabel('order').has('number','" + orderNumber + "').property('status','partially paid')";
+            await g.SubmitAsync<dynamic>(setOrderPartiallyPaid);
         }
 
         public async Task<bool> ProductExistsAsync(string productName)
@@ -161,6 +168,7 @@ namespace CoreBot.Database
             g = ConnectToDatabase();
             string addProductToOrder = "g.V().hasLabel('order').has('number','" + order.GetOrderNumber() + "').as('a').V().hasLabel('product').has('name','" + product.GetProductName() + "').as('b').addE('contains_product').from('a').to('b')";
             await g.SubmitAsync<dynamic>(addProductToOrder);
+            await SetOrderPartiallyPaidAsync(order.GetOrderNumber());
         }
 
         public async Task RemoveOrderAsync(Order order)

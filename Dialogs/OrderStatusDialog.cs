@@ -1,4 +1,5 @@
-﻿using CoreBot.Database;
+﻿using CoreBot.CognitiveModels;
+using CoreBot.Database;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Builder.Dialogs.Choices;
@@ -8,6 +9,7 @@ using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -16,13 +18,18 @@ namespace CoreBot.Dialogs
     public class OrderStatusDialog : CancelAndHelpDialog
     {
         private GremlinHelper gremlinHelper;
+        private int orderNumber;
+        private string status;
 
         public OrderStatusDialog(IConfiguration configuration) : base(nameof(OrderStatusDialog))
         {
             gremlinHelper = new GremlinHelper(configuration);
+
+            AddDialog(new ConfirmPrompt(nameof(ConfirmPrompt)));
             AddDialog(new WaterfallDialog(nameof(WaterfallDialog), new WaterfallStep[]{
                 GetOrderNumberAsync,
                 CheckOrderStatusAsync,
+                ActOnOrderStatusAsync,
                 FinalStepAsync,
             }));
 
@@ -31,21 +38,83 @@ namespace CoreBot.Dialogs
 
         private async Task<DialogTurnResult> GetOrderNumberAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
-            var messageText = "Wat is het ordernummer? Dan ga ik voor je op zoek.";
-            var promptMessage = MessageFactory.Text(messageText, messageText, InputHints.ExpectingInput);
-            return await stepContext.PromptAsync(nameof(TextPrompt), new PromptOptions { Prompt = promptMessage }, cancellationToken);
+            LuisHelper luisResult = (LuisHelper)stepContext.Options;
+            string request = luisResult.Text;
+            bool containsNumber = request.Any(Char.IsDigit);
+
+            if (containsNumber)
+            {
+                string result = Regex.Match(request, @"\d+").Value;
+                orderNumber = Int32.Parse(result);
+                return await stepContext.NextAsync();
+            }
+            else
+            {
+                var messageText = "Wat is het ordernummer? Dan ga ik voor je op zoek.";
+                var promptMessage = MessageFactory.Text(messageText, messageText, InputHints.ExpectingInput);
+                return await stepContext.PromptAsync(nameof(TextPrompt), new PromptOptions { Prompt = promptMessage }, cancellationToken);
+            }        
         }
 
         private async Task<DialogTurnResult> CheckOrderStatusAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
-            int orderNumber = Int32.Parse((string)stepContext.Result);
-            string status = await gremlinHelper.GetOrderStatusAsync(orderNumber);
-            await stepContext.Context.SendActivityAsync("De status van je order is dat deze door ons is: " + status);
+            if(orderNumber.Equals(null))
+            {
+                orderNumber = Int32.Parse((string)stepContext.Result);
+            }
+            
+            status = await gremlinHelper.GetOrderStatusAsync(orderNumber);
+            
             return await stepContext.NextAsync();
+        }
+
+        private async Task<DialogTurnResult> ActOnOrderStatusAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        {
+
+            switch (status)
+            {
+                case "awaiting payment":
+                    await stepContext.Context.SendActivityAsync("We zijn in afwachting van je betaling voor deze order.");
+                    return await stepContext.PromptAsync(nameof(ConfirmPrompt), new PromptOptions { Prompt = MessageFactory.Text("Wil je de order nu betalen?")}, cancellationToken);
+                case "payment received":
+                    await stepContext.Context.SendActivityAsync("Je betaling is ontvangen. Je bestelling wordt gereedgemaakt voor verzending!");
+                    return await stepContext.NextAsync();
+                case "order received":
+                    await stepContext.Context.SendActivityAsync("Je bestelling wordt klaargemaakt voor verzending!");
+                    return await stepContext.NextAsync();
+                case "ready for delivery":
+                    await stepContext.Context.SendActivityAsync("Je bestelling staat klaar om verzonden te worden.");
+                    return await stepContext.NextAsync();
+                case "in delivery":
+                    await stepContext.Context.SendActivityAsync("De bestelling is onderweg!");
+                    return await stepContext.NextAsync();
+                case "delivered":
+                    await stepContext.Context.SendActivityAsync("Je bestelling is afgeleverd!");
+                    return await stepContext.NextAsync();
+                default:
+                    await stepContext.Context.SendActivityAsync("Er lijkt iets fout te zijn gegaan, ik kan geen informatie over deze order vinden.");
+                    return await stepContext.NextAsync();
+            }
+
         }
 
         private async Task<DialogTurnResult> FinalStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
+            if ((bool)stepContext.Result)
+            {
+                bool orderPaid = await gremlinHelper.PayOrderAsync(orderNumber);
+
+                if (orderPaid)
+                {
+                    await stepContext.Context.SendActivityAsync("Betaling geslaagd! Je bestelling wordt zo snel mogelijk geleverd.");
+                }
+                else
+                {
+                    await stepContext.Context.SendActivityAsync("Betaling kon niet worden uitgevoerd. Probeer het later opnieuw.");
+                }
+            }
+
+
             return await stepContext.EndDialogAsync();
         }
     }

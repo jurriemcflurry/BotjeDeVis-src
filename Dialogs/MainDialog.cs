@@ -38,6 +38,7 @@ namespace Microsoft.BotBuilderSamples.Dialogs
             AddDialog(new ChangeOrderDialog(configuration));
             AddDialog(new OrderStatusDialog(configuration));
             AddDialog(new ProductsDialog(configuration));
+            AddDialog(new PaymentDialog(configuration));
             AddDialog(new GreetingDialog());
             AddDialog(new NoneDialog());
             AddDialog(new CancelAndHelpDialog(nameof(CancelAndHelpDialog)));
@@ -46,6 +47,7 @@ namespace Microsoft.BotBuilderSamples.Dialogs
                 PromptStepAsync,
                 IntroStepAsync,
                 ActStepAsync,
+                CheckForNextStepAsync,
                 FinalStepAsync,
             }));
 
@@ -130,12 +132,15 @@ namespace Microsoft.BotBuilderSamples.Dialogs
                     return await stepContext.BeginDialogAsync(nameof(NoneDialog), cancellationToken);
 
                 case LuisHelper.Intent.changeOrder:
-                    return await stepContext.BeginDialogAsync(nameof(ChangeOrderDialog), cancellationToken);
+                    return await stepContext.BeginDialogAsync(nameof(ChangeOrderDialog), luisResult, cancellationToken);
 
                // case LuisHelper.Intent.Retour:
                 case LuisHelper.Intent.orderStatus:
-                    return await stepContext.BeginDialogAsync(nameof(OrderStatusDialog), cancellationToken);
-               // case LuisHelper.Intent.Cancel;
+                    return await stepContext.BeginDialogAsync(nameof(OrderStatusDialog), luisResult, cancellationToken);
+                // case LuisHelper.Intent.Cancel;
+
+                case LuisHelper.Intent.Payment:
+                    return await stepContext.BeginDialogAsync(nameof(PaymentDialog), luisResult, cancellationToken);
                // implementeren
 
                 default:
@@ -143,10 +148,25 @@ namespace Microsoft.BotBuilderSamples.Dialogs
                     var didntUnderstandMessageText = $"Sorry, Ik snap je niet helemaal. Kun je je vraag anders stellen?";
                     var didntUnderstandMessage = MessageFactory.Text(didntUnderstandMessageText, didntUnderstandMessageText, InputHints.IgnoringInput);
                     await stepContext.Context.SendActivityAsync(didntUnderstandMessage, cancellationToken);
-                    break;
+                    return await stepContext.NextAsync(null, cancellationToken);
+            }           
+        }
+
+        private async Task<DialogTurnResult> CheckForNextStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        {
+            string message = "";
+
+            if(stepContext.Result != null)
+            {
+                message = (string)stepContext.Result;
             }
 
-            return await stepContext.NextAsync(null, cancellationToken);
+            if (message.Contains("betalen"))
+            {
+                return await stepContext.BeginDialogAsync(nameof(PaymentDialog), message, cancellationToken);
+            }
+
+            return await stepContext.NextAsync();
         }
 
         private async Task<DialogTurnResult> FinalStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)

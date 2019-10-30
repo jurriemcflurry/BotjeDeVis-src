@@ -313,7 +313,7 @@ namespace CoreBot.Dialogs
 
             if(choice.Index == 0)
             {
-                bool paymentSuccessful = await gremlinHelper.PayOrderAsync(order);
+                bool paymentSuccessful = await gremlinHelper.PayOrderAsync(order.GetOrderNumber());
 
                 if (paymentSuccessful)
                 {
