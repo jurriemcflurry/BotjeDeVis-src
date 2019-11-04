@@ -21,7 +21,7 @@ namespace CoreBot.Dialogs
         private LuisHelper luisResult = null;
         private List<string> productTypeList = new List<string>();
         private string productInfoOutput = "";
-        private string productInfoForCard;
+        private string productInfoForCard = "";
         private GremlinHelper gremlinHelper;
         private List<string> productInfo = new List<string>();
 
@@ -61,6 +61,21 @@ namespace CoreBot.Dialogs
             var reply = MessageFactory.Attachment(attachments);
             reply.AttachmentLayout = AttachmentLayoutTypes.Carousel;
 
+            await CreateCardsAsync(reply, productTypeList);           
+
+            await stepContext.Context.SendActivityAsync(reply, cancellationToken);
+            return await stepContext.NextAsync();
+        }
+
+        private async Task<DialogTurnResult> FinalStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        {
+            productInfo.Clear();
+            productTypeList.Clear();
+            return await stepContext.EndDialogAsync();
+        }
+
+        private async Task CreateCardsAsync(IMessageActivity reply, List<string> productTypeList)
+        {
             foreach (string type in productTypeList)
             {
                 productInfoOutput = await gremlinHelper.GetProductInformationPerTypeAsync(type);
@@ -86,25 +101,93 @@ namespace CoreBot.Dialogs
                         productInfoList.Add(productInfoValue.ToString());
                     }
 
-                    foreach(string info in productInfoList)
+                    foreach (string info in productInfoList)
                     {
                         productInfoForCard += info + Environment.NewLine;
                     }
 
                     Product p = new Product(productNameValue.ToString(), productInfoList);
                     reply.Attachments.Add(Cards.GetThumbnailCard(p.GetProductName(), productInfoForCard).ToAttachment());
-                }                            
+                }
             }
 
-            await stepContext.Context.SendActivityAsync(reply, cancellationToken);
-            return await stepContext.NextAsync();
-        }
+            if (productInfoOutput.Equals("[]")) //niets gevonden met type, check op meervoud met 's'
+            {
+                foreach (string type in productTypeList)
+                {
+                    string type2 = type.Remove(type.Length - 1);
+                    productInfoOutput = await gremlinHelper.GetProductInformationPerTypeAsync(type2);
 
-        private async Task<DialogTurnResult> FinalStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
-        {
-            productInfo.Clear();
-            productTypeList.Clear();
-            return await stepContext.EndDialogAsync();
+                    List<string> productInfoList = new List<string>();
+                    var productArray = JArray.Parse(productInfoOutput);
+
+                    for (int i = 0; i < productArray.Count; i++)
+                    {
+                        productInfoList.Clear();
+                        productInfoForCard = "";
+                        var product = (JObject)productArray[i];
+                        var properties = (JObject)product["properties"];
+                        var productInfo = (JArray)properties["productinfo"];
+                        var productName = (JArray)properties["name"];
+                        var productName2 = (JObject)productName[0];
+                        var productNameValue = productName2["value"];
+
+                        for (int j = 0; j < productInfo.Count; j++)
+                        {
+                            var productInfo2 = (JObject)productInfo[j];
+                            var productInfoValue = productInfo2["value"];
+                            productInfoList.Add(productInfoValue.ToString());
+                        }
+
+                        foreach (string info in productInfoList)
+                        {
+                            productInfoForCard += info + Environment.NewLine;
+                        }
+
+                        Product p = new Product(productNameValue.ToString(), productInfoList);
+                        reply.Attachments.Add(Cards.GetThumbnailCard(p.GetProductName(), productInfoForCard).ToAttachment());
+                    }
+                }
+            }
+
+            if (productInfoOutput.Equals("[]")) //niets gevonden met type, check op meervoud met 'en'
+            {
+                foreach (string type in productTypeList)
+                {
+                    string type3 = type.Remove(type.Length - 2);
+                    productInfoOutput = await gremlinHelper.GetProductInformationPerTypeAsync(type3);
+
+                    List<string> productInfoList = new List<string>();
+                    var productArray = JArray.Parse(productInfoOutput);
+
+                    for (int i = 0; i < productArray.Count; i++)
+                    {
+                        productInfoList.Clear();
+                        productInfoForCard = "";
+                        var product = (JObject)productArray[i];
+                        var properties = (JObject)product["properties"];
+                        var productInfo = (JArray)properties["productinfo"];
+                        var productName = (JArray)properties["name"];
+                        var productName2 = (JObject)productName[0];
+                        var productNameValue = productName2["value"];
+
+                        for (int j = 0; j < productInfo.Count; j++)
+                        {
+                            var productInfo2 = (JObject)productInfo[j];
+                            var productInfoValue = productInfo2["value"];
+                            productInfoList.Add(productInfoValue.ToString());
+                        }
+
+                        foreach (string info in productInfoList)
+                        {
+                            productInfoForCard += info + Environment.NewLine;
+                        }
+
+                        Product p = new Product(productNameValue.ToString(), productInfoList);
+                        reply.Attachments.Add(Cards.GetThumbnailCard(p.GetProductName(), productInfoForCard).ToAttachment());
+                    }
+                }
+            }
         }
     }
 }
