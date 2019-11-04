@@ -100,20 +100,22 @@ namespace CoreBot.Dialogs
 
         private async Task<DialogTurnResult> FinalStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
-            if ((bool)stepContext.Result)
+            if(stepContext.Result != null)
             {
-                bool orderPaid = await gremlinHelper.PayOrderAsync(orderNumber);
+                if ((bool)stepContext.Result)
+                {
+                    bool orderPaid = await gremlinHelper.PayOrderAsync(orderNumber);
 
-                if (orderPaid)
-                {
-                    await stepContext.Context.SendActivityAsync("Betaling geslaagd! Je bestelling wordt zo snel mogelijk geleverd.");
-                }
-                else
-                {
-                    await stepContext.Context.SendActivityAsync("Betaling kon niet worden uitgevoerd. Probeer het later opnieuw.");
+                    if (orderPaid)
+                    {
+                        await stepContext.Context.SendActivityAsync("Betaling geslaagd! Je bestelling wordt zo snel mogelijk geleverd.");
+                    }
+                    else
+                    {
+                        await stepContext.Context.SendActivityAsync("Betaling kon niet worden uitgevoerd. Probeer het later opnieuw.");
+                    }
                 }
             }
-
 
             return await stepContext.EndDialogAsync();
         }
