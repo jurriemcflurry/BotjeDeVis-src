@@ -86,6 +86,13 @@ namespace CoreBot.Dialogs
                 if (orderExists)
                 {
                     orderProducts = await gremlinHelper.GetOrderProductsAsync(orderNumber);
+                    string status = await gremlinHelper.GetOrderStatusAsync(orderNumber);
+                    if (status.Contains("deliver"))
+                    {
+                        await stepContext.Context.SendActivityAsync("Deze bestelling kan niet worden aangepast, omdat deze gereed staat voor bezorging.");
+                        return await stepContext.EndDialogAsync();
+                    }
+
                 }
                 else
                 {

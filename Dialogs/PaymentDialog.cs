@@ -21,6 +21,7 @@ namespace CoreBot.Dialogs
         private int orderNumber = 0;
         private string status;
         private string request;
+        private bool paymentSuccessful;
 
         public PaymentDialog(IConfiguration configuration) : base(nameof(PaymentDialog))
         {
@@ -125,7 +126,7 @@ namespace CoreBot.Dialogs
 
             if (choice.Index == 0)
             {
-                bool paymentSuccessful = await gremlinHelper.PayOrderAsync(orderNumber);
+                paymentSuccessful = await gremlinHelper.PayOrderAsync(orderNumber);
 
                 if (paymentSuccessful)
                 {
@@ -148,6 +149,12 @@ namespace CoreBot.Dialogs
 
         private async Task<DialogTurnResult> FinalStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
+
+            if (paymentSuccessful)
+            {
+                return await stepContext.EndDialogAsync(orderNumber + " laten bezorgen");
+            }
+
             orderNumber = 0;
             return await stepContext.EndDialogAsync();
         }

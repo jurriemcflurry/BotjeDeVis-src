@@ -35,6 +35,7 @@ namespace CoreBot.Dialogs
         private string productInfoForCard = "";
         string[] productTypes;
         private readonly WebshopRecognizer _luisRecognizer;
+        private bool paymentSuccessful;
 
         public OrdersDialog(IConfiguration configuration, WebshopRecognizer luisRecognizer) : base(nameof(OrdersDialog))
         {
@@ -348,7 +349,7 @@ namespace CoreBot.Dialogs
 
             if(choice.Index == 0)
             {
-                bool paymentSuccessful = await gremlinHelper.PayOrderAsync(order.GetOrderNumber());
+                paymentSuccessful = await gremlinHelper.PayOrderAsync(order.GetOrderNumber());
 
                 if (paymentSuccessful)
                 {
@@ -374,6 +375,12 @@ namespace CoreBot.Dialogs
         {
             productList.Clear();
             luisResult = null;
+
+            if (paymentSuccessful)
+            {
+                return await stepContext.EndDialogAsync(order.GetOrderNumber() + " laten bezorgen");
+            }
+
             return await stepContext.EndDialogAsync();
         }
 

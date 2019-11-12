@@ -37,6 +37,7 @@ namespace Microsoft.BotBuilderSamples.Dialogs
             AddDialog(new ProductsDialog(configuration));
             AddDialog(new PaymentDialog(configuration));
             AddDialog(new ComplaintDialog(configuration));
+            AddDialog(new DeliveriesDialog(configuration));
             AddDialog(new GreetingDialog());
             AddDialog(new NoneDialog());
             AddDialog(new CancelAndHelpDialog(nameof(CancelAndHelpDialog)));
@@ -144,6 +145,9 @@ namespace Microsoft.BotBuilderSamples.Dialogs
                 case LuisHelper.Intent.Complaint:
                     return await stepContext.BeginDialogAsync(nameof(ComplaintDialog), luisResult, cancellationToken);
 
+                case LuisHelper.Intent.Delivery:
+                    return await stepContext.BeginDialogAsync(nameof(DeliveriesDialog), luisResult, cancellationToken);
+
                 default:
                     // Catch all for unhandled intents
                     var didntUnderstandMessageText = $"Sorry, Ik snap je niet helemaal. Kun je je vraag anders stellen?";
@@ -165,6 +169,10 @@ namespace Microsoft.BotBuilderSamples.Dialogs
             if (message.Contains("betalen"))
             {
                 return await stepContext.BeginDialogAsync(nameof(PaymentDialog), message, cancellationToken);
+            }
+            else if (message.Contains("bezorgen"))
+            {
+                return await stepContext.BeginDialogAsync(nameof(DeliveriesDialog), message, cancellationToken);
             }
 
             return await stepContext.NextAsync();

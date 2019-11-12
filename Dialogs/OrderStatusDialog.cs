@@ -70,6 +70,11 @@ namespace CoreBot.Dialogs
 
         private async Task<DialogTurnResult> ActOnOrderStatusAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
+            if (status.Contains("delivery"))
+            {
+                await stepContext.Context.SendActivityAsync("De volgende bezorgdatum staat voor je ingepland: " + status);
+                return await stepContext.NextAsync();
+            }
 
             switch (status)
             {
@@ -78,14 +83,11 @@ namespace CoreBot.Dialogs
                     return await stepContext.PromptAsync(nameof(ConfirmPrompt), new PromptOptions { Prompt = MessageFactory.Text("Wil je de order nu betalen?")}, cancellationToken);
                 case "payment received":
                     await stepContext.Context.SendActivityAsync("Je betaling is ontvangen. Je bestelling wordt gereedgemaakt voor verzending!");
-                    return await stepContext.NextAsync();
+                    return await stepContext.PromptAsync(nameof(ConfirmPrompt), new PromptOptions { Prompt = MessageFactory.Text("Wil je nu een bezorgmoment inplannen?") }, cancellationToken);
                 case "order received":
                     await stepContext.Context.SendActivityAsync("Je bestelling wordt klaargemaakt voor verzending!");
                     return await stepContext.NextAsync();
-                case "ready for delivery":
-                    await stepContext.Context.SendActivityAsync("Je bestelling staat klaar om verzonden te worden.");
-                    return await stepContext.NextAsync();
-                case "in delivery":
+                case "being delivery":
                     await stepContext.Context.SendActivityAsync("De bestelling is onderweg!");
                     return await stepContext.NextAsync();
                 case "delivered":
@@ -102,7 +104,7 @@ namespace CoreBot.Dialogs
         {
             if(stepContext.Result != null)
             {
-                if ((bool)stepContext.Result)
+                if ((bool)stepContext.Result && status.Equals("awaiting payment"))
                 {
                     bool orderPaid = await gremlinHelper.PayOrderAsync(orderNumber);
 
@@ -114,6 +116,10 @@ namespace CoreBot.Dialogs
                     {
                         await stepContext.Context.SendActivityAsync("Betaling kon niet worden uitgevoerd. Probeer het later opnieuw.");
                     }
+                }
+                else if((bool)stepContext.Result && status.Equals("payment received"))
+                {
+                    return await stepContext.EndDialogAsync(orderNumber + " bezorgen");
                 }
             }
 

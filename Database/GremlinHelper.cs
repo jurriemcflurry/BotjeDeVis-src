@@ -84,6 +84,34 @@ namespace CoreBot.Database
             return false;
         }
 
+        public async Task<bool> SetDeliveryStatusAsync(int orderNumber, int daysToDelivery, string deliveryTime)
+        {
+            g = ConnectToDatabase();
+            string setDeliveryStatus = "";
+            if(daysToDelivery > 0)
+            {
+                setDeliveryStatus = "g.V().hasLabel('order').has('number','" + orderNumber + "').property('status','delivery in " + daysToDelivery + " days, time: " + deliveryTime + "')";
+            }
+            else if(daysToDelivery == 0)
+            {
+                setDeliveryStatus = "g.V().hasLabel('order').has('number','" + orderNumber + "').property('status','being delivered')";              
+            }
+            else if(daysToDelivery < 0)
+            {
+                setDeliveryStatus = "g.V().hasLabel('order').has('number','" + orderNumber + "').property('status','delivered')";
+            }
+
+            var result = await g.SubmitAsync<dynamic>(setDeliveryStatus);
+            string output = JsonConvert.SerializeObject(result);
+
+            if (output != "[]")
+            {
+                return true;
+            }
+
+            return false;
+        }
+
         public async Task SetOrderPartiallyPaidAsync(int orderNumber)
         {
             g = ConnectToDatabase();

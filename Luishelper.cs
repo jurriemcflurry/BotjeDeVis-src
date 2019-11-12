@@ -23,6 +23,7 @@ namespace CoreBot.CognitiveModels
             orderStatus,
             Payment,
             Complaint,
+            Delivery,
             None
         }
         public Dictionary<Intent, IntentScore> Intents;
