@@ -22,6 +22,7 @@ namespace CoreBot.CognitiveModels
             changeOrder,
             orderStatus,
             Payment,
+            Complaint,
             None
         }
         public Dictionary<Intent, IntentScore> Intents;
@@ -36,6 +37,9 @@ namespace CoreBot.CognitiveModels
            
             [JsonProperty("product")]
             public string[] products;
+
+            [JsonProperty("bestelling")]
+            public string[] order;
 
             // Composites
 

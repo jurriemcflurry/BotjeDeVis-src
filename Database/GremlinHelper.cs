@@ -227,6 +227,33 @@ namespace CoreBot.Database
 
             return true;
         }
+
+        public async Task<bool> StoreComplaintAsync(int orderNumber, string complaint)
+        {
+            g = ConnectToDatabase();
+            string storeComplaintQuery = "g.addV('complaint').property('data','complaint').property('complaint','" + complaint + "').property('orderNumber','" + orderNumber + "')";
+            var result = await g.SubmitAsync<dynamic>(storeComplaintQuery);
+
+            var output = JsonConvert.SerializeObject(result);
+
+            if (output == "[]")
+            {
+                return false;
+            }
+            else
+            {
+                string addComplaintToOrderQuery = "g.V().hasLabel('complaint').has('orderNumber','" + orderNumber + "').as('a').V().hasLabel('order').has('number','" + orderNumber + "').as('b').addE('belongs_to').from('a').to('b')";
+                var result2 = await g.SubmitAsync<dynamic>(addComplaintToOrderQuery);
+                var output2 = JsonConvert.SerializeObject(result2);
+
+                if(output2 == "[]")
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
     
     }
 }

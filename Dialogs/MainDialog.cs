@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
-
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -39,6 +36,7 @@ namespace Microsoft.BotBuilderSamples.Dialogs
             AddDialog(new OrderStatusDialog(configuration));
             AddDialog(new ProductsDialog(configuration));
             AddDialog(new PaymentDialog(configuration));
+            AddDialog(new ComplaintDialog(configuration));
             AddDialog(new GreetingDialog());
             AddDialog(new NoneDialog());
             AddDialog(new CancelAndHelpDialog(nameof(CancelAndHelpDialog)));
@@ -141,7 +139,10 @@ namespace Microsoft.BotBuilderSamples.Dialogs
 
                 case LuisHelper.Intent.Payment:
                     return await stepContext.BeginDialogAsync(nameof(PaymentDialog), luisResult, cancellationToken);
-               // implementeren
+                // implementeren
+
+                case LuisHelper.Intent.Complaint:
+                    return await stepContext.BeginDialogAsync(nameof(ComplaintDialog), luisResult, cancellationToken);
 
                 default:
                     // Catch all for unhandled intents

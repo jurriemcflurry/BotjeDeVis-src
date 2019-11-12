@@ -33,6 +33,7 @@ namespace CoreBot.Dialogs
         private List<string> productTypeList = new List<string>();
         private string productInfoOutput = "";
         private string productInfoForCard = "";
+        string[] productTypes;
         private readonly WebshopRecognizer _luisRecognizer;
 
         public OrdersDialog(IConfiguration configuration, WebshopRecognizer luisRecognizer) : base(nameof(OrdersDialog))
@@ -50,6 +51,7 @@ namespace CoreBot.Dialogs
                 CheckForProductsAsync,
                 PromptQuestionAsync,
                 HandleChoiceAsync,
+                ChooseProductsFromAssortimentAsync,
                 UpdateProductListAsync,
                 ConfirmOrderAsync,
                 StoreOrderAsync,
@@ -89,15 +91,11 @@ namespace CoreBot.Dialogs
                             
                             bool productTypeExists = await gremlinHelper.ProductTypeExistsAsync(newProduct);
 
-                            if (productTypeExists)
-                            {
-                                //info over product (proberen deze dialog te eindigen en productdialog te starten?)
-                                await stepContext.Context.SendActivityAsync("Hier wordt de info over dit type product getoond (dit wordt nog geimplementeerd!)");
-                            }
-                            else
+                            if (!productTypeExists)
                             {
                                 await stepContext.Context.SendActivityAsync("Product " + newProduct + " is helaas niet in ons assortiment.");
                             }
+                           
                         }
                     }
 
@@ -105,6 +103,7 @@ namespace CoreBot.Dialogs
                 }
                 else 
                 {
+                    await stepContext.Context.SendActivityAsync("Ik heb nog geen product herkend in je verzoek.");
                     return await stepContext.NextAsync();
                 }
             }
@@ -155,37 +154,73 @@ namespace CoreBot.Dialogs
             return await stepContext.NextAsync();
         }
 
-        //update the producylist by either adding an extra product, or removing selected product.
-        //skip to confirmOrder in case the user selected they are done with their order
-        private async Task<DialogTurnResult> UpdateProductListAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        private async Task<DialogTurnResult> ChooseProductsFromAssortimentAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
             if (whatToDo.Equals("Toevoegen"))
             {
                 // call luis to filter the entities from the input
                 luisResult = await _luisRecognizer.RecognizeAsync<LuisHelper>(stepContext.Context, cancellationToken);
-                string[] productsAsked = luisResult.Entities.products;
+                productTypes = luisResult.Entities.products;
 
-                for(int i = 0; i < productsAsked.Length; i++)
+                for (int i = 0; i < productTypes.Length; i++)
                 {
-                    string newProductName = Regex.Replace(productsAsked[i], " ", string.Empty);                   
-                    bool productExists = await gremlinHelper.ProductExistsAsync(newProductName);
+                    string productType = productTypes[i];
+                    string newProductType = Regex.Replace(productType, " ", string.Empty);
+                    productTypeList.Add(newProductType);
+                }
 
-                    if (productExists)
+                var attachments = new List<Attachment>();
+                var reply = MessageFactory.Attachment(attachments);
+                reply.AttachmentLayout = AttachmentLayoutTypes.Carousel;
+
+                await CreateCardsAsync(reply, productTypeList);
+
+                await stepContext.Context.SendActivityAsync(reply, cancellationToken);
+                var opts = new PromptOptions
+                {
+                    Prompt = new Activity
                     {
-                        Product product = new Product(newProductName);
-                        productList.Add(product);
+                        Type = ActivityTypes.Message,
+                       // Text = "", // You can comment this out if you don't want to display any text. Still works.
                     }
-                    else
-                    {
-                        await stepContext.Context.SendActivityAsync("Product " + newProductName + " is helaas niet in ons assortiment.");
-                    }
-                }       
+                };
+
+                // Display a Text Prompt and wait for input
+                return await stepContext.PromptAsync(nameof(TextPrompt), opts);
             }
             else if (whatToDo.Equals("Verwijderen"))
             {
                 FoundChoice choice = (FoundChoice)stepContext.Result;
                 string productFound = choice.Value.ToString();
+                return await stepContext.NextAsync(productFound);
+            }
 
+            return await stepContext.NextAsync();
+        }
+
+        private async Task<DialogTurnResult> UpdateProductListAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        {
+            if (whatToDo.Equals("Toevoegen"))
+            {
+
+                string productInput = (string)stepContext.Result;
+                
+                bool productExists = await gremlinHelper.ProductExistsAsync(productInput);
+
+                if (productExists)
+                {
+                    Product product = new Product(productInput);
+                    productList.Add(product);
+                }
+                else
+                {
+                    await stepContext.Context.SendActivityAsync("Product " + productInput + " is helaas niet in ons assortiment.");
+                }
+                     
+            }
+            else if (whatToDo.Equals("Verwijderen"))
+            {
+                string productFound = (string)stepContext.Options;
                 foreach (Product p in productList)
                 {
                     if (p.GetProductName().Equals(productFound))
@@ -341,5 +376,121 @@ namespace CoreBot.Dialogs
             luisResult = null;
             return await stepContext.EndDialogAsync();
         }
-    }
+
+        private async Task CreateCardsAsync(IMessageActivity reply, List<string> productTypeList)
+        {
+            foreach (string type in productTypeList)
+            {
+                productInfoOutput = await gremlinHelper.GetProductInformationPerTypeAsync(type);
+
+                List<string> productInfoList = new List<string>();
+                var productArray = JArray.Parse(productInfoOutput);
+
+                for (int i = 0; i < productArray.Count; i++)
+                {
+                    productInfoList.Clear();
+                    productInfoForCard = "";
+                    var product = (JObject)productArray[i];
+                    var properties = (JObject)product["properties"];
+                    var productInfo = (JArray)properties["productinfo"];
+                    var productName = (JArray)properties["name"];
+                    var productName2 = (JObject)productName[0];
+                    var productNameValue = productName2["value"];
+
+                    for (int j = 0; j < productInfo.Count; j++)
+                    {
+                        var productInfo2 = (JObject)productInfo[j];
+                        var productInfoValue = productInfo2["value"];
+                        productInfoList.Add(productInfoValue.ToString());
+                    }
+
+                    foreach (string info in productInfoList)
+                    {
+                        productInfoForCard += info + Environment.NewLine;
+                    }
+
+                    Product p = new Product(productNameValue.ToString(), productInfoList);
+                    reply.Attachments.Add(Cards.GetThumbnailCard(p.GetProductName(), productInfoForCard).ToAttachment());
+                }
+            }
+
+            if (productInfoOutput.Equals("[]")) //niets gevonden met type, check op meervoud met 's'
+            {
+                foreach (string type in productTypeList)
+                {
+                    string type2 = type.Remove(type.Length - 1);
+                    productInfoOutput = await gremlinHelper.GetProductInformationPerTypeAsync(type2);
+
+                    List<string> productInfoList = new List<string>();
+                    var productArray = JArray.Parse(productInfoOutput);
+
+                    for (int i = 0; i < productArray.Count; i++)
+                    {
+                        productInfoList.Clear();
+                        productInfoForCard = "";
+                        var product = (JObject)productArray[i];
+                        var properties = (JObject)product["properties"];
+                        var productInfo = (JArray)properties["productinfo"];
+                        var productName = (JArray)properties["name"];
+                        var productName2 = (JObject)productName[0];
+                        var productNameValue = productName2["value"];
+
+                        for (int j = 0; j < productInfo.Count; j++)
+                        {
+                            var productInfo2 = (JObject)productInfo[j];
+                            var productInfoValue = productInfo2["value"];
+                            productInfoList.Add(productInfoValue.ToString());
+                        }
+
+                        foreach (string info in productInfoList)
+                        {
+                            productInfoForCard += info + Environment.NewLine;
+                        }
+
+                        Product p = new Product(productNameValue.ToString(), productInfoList);
+                        reply.Attachments.Add(Cards.GetThumbnailCard(p.GetProductName(), productInfoForCard).ToAttachment());
+                    }
+                }
+            }
+
+            if (productInfoOutput.Equals("[]")) //niets gevonden met type, check op meervoud met 'en'
+            {
+                foreach (string type in productTypeList)
+                {
+                    string type3 = type.Remove(type.Length - 2);
+                    productInfoOutput = await gremlinHelper.GetProductInformationPerTypeAsync(type3);
+
+                    List<string> productInfoList = new List<string>();
+                    var productArray = JArray.Parse(productInfoOutput);
+
+                    for (int i = 0; i < productArray.Count; i++)
+                    {
+                        productInfoList.Clear();
+                        productInfoForCard = "";
+                        var product = (JObject)productArray[i];
+                        var properties = (JObject)product["properties"];
+                        var productInfo = (JArray)properties["productinfo"];
+                        var productName = (JArray)properties["name"];
+                        var productName2 = (JObject)productName[0];
+                        var productNameValue = productName2["value"];
+
+                        for (int j = 0; j < productInfo.Count; j++)
+                        {
+                            var productInfo2 = (JObject)productInfo[j];
+                            var productInfoValue = productInfo2["value"];
+                            productInfoList.Add(productInfoValue.ToString());
+                        }
+
+                        foreach (string info in productInfoList)
+                        {
+                            productInfoForCard += info + Environment.NewLine;
+                        }
+
+                        Product p = new Product(productNameValue.ToString(), productInfoList);
+                        reply.Attachments.Add(Cards.GetThumbnailCard(p.GetProductName(), productInfoForCard).ToAttachment());
+                    }
+                }
+            }
+        }
+        }
 }
