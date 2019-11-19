@@ -16,11 +16,13 @@ namespace CoreBot.Database
         private string graphkey;
         private string graphendpoint;
         private GremlinClient g;
+        private AuthenticationModel auth;
 
         public GremlinHelper(IConfiguration configuration)
         {
             this.graphendpoint = configuration["cosgraphendpoint"];
             this.graphkey = configuration["cosgraphkey"];
+            auth = AuthenticationModel.Instance();
         }
 
         private GremlinClient ConnectToDatabase()
@@ -49,6 +51,10 @@ namespace CoreBot.Database
             string query = "g.addV('order').property('data','order').property('number','" + orderNumber + "').property('status','awaiting payment')";
             await g.SubmitAsync<dynamic>(query);
 
+            //creeer edge tussen net gemaakt order, en de ingelogde gebruiker
+            string edgeBetweenUserAndOrderQuery = "g.V().hasLabel('order').has('number','" + orderNumber + "').as('a').V().hasLabel('person').has('name','" + auth.GetLoggedInUser() + "').as('b').addE('has_order').from('b').to('a')";
+            await g.SubmitAsync<dynamic>(edgeBetweenUserAndOrderQuery);
+
             //creeer edges tussen net gemaakt order, en de producten in de database adhv label = product & name = productName
             foreach (Product p in productsToStore)
             {
@@ -71,7 +77,6 @@ namespace CoreBot.Database
         public async Task<bool> PayOrderAsync(int orderNumber)
         {
             g = ConnectToDatabase();
-            string orderNumberString = orderNumber.ToString();
             string updateOrderStatusToPaid = "g.V().hasLabel('order').has('number','" + orderNumber + "').property('status','payment received')";
             var result = await g.SubmitAsync<dynamic>(updateOrderStatusToPaid);
             string output = JsonConvert.SerializeObject(result);
@@ -150,6 +155,21 @@ namespace CoreBot.Database
 
 
             return true;
+        }
+
+        public async Task<bool> OrderBelongsToUserAsync(string orderNumber)
+        {
+            g = ConnectToDatabase();
+            string orderBelongsToUserQuery = "g.V().hasLabel('person').has('name','" + auth.GetLoggedInUser() + "').outE().hasLabel('has_order').inV().hasLabel('order').has('number','" + orderNumber + "')";
+            var result = await g.SubmitAsync<dynamic>(orderBelongsToUserQuery);
+            var output = JsonConvert.SerializeObject(result);
+
+            if(output != "[]")
+            {
+                return true;
+            }
+
+            return false;
         }
 
         public async Task<List<Product>> GetOrderProductsAsync(int orderNumber)
@@ -278,9 +298,48 @@ namespace CoreBot.Database
                 {
                     return false;
                 }
+
+                string addComplaintToUserQuery = "g.V().hasLabel('complaint').has('orderNumber','" + orderNumber + "').as('a')..V().hasLabel('person').has('name','" + auth.GetLoggedInUser() + "').as('b').addE('has_complaint').from('b').to('a')";
+                var result3 = await g.SubmitAsync<dynamic>(addComplaintToUserQuery);
+                var output3 = JsonConvert.SerializeObject(result2);
+
+                if (output3 == "[]")
+                {
+                    return false;
+                }
             }
 
             return true;
+        }
+
+        public async Task<bool> CheckCredentialsAsync(string username, string password)
+        {
+            g = ConnectToDatabase();
+            string checkCredentialsQuery = "g.V().hasLabel('person').has('name','" + username + "').has('password','" + password + "')";
+            var result = await g.SubmitAsync<dynamic>(checkCredentialsQuery);
+            var output = JsonConvert.SerializeObject(result);
+
+            if(output != "[]")
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        public async Task<bool> CreateAccountAsync(string username, string password)
+        {
+            g = ConnectToDatabase();
+            string createAccountQuery = "g.addV('person').property('data','person').property('name','" + username + "').property('password','" + password + "')";
+            var result = await g.SubmitAsync<dynamic>(createAccountQuery);
+            var output = JsonConvert.SerializeObject(result);
+
+            if (output != "[]")
+            {
+                return true;
+            }
+
+            return false;
         }
     
     }

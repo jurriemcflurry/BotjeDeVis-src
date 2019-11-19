@@ -29,11 +29,13 @@ namespace CoreBot.Dialogs
         private int orderNumber = 0;
         private bool orderExists;
         private int productsAdded = 0;
+        private AuthenticationModel auth;
 
         public ChangeOrderDialog(IConfiguration configuration) : base(nameof(ChangeOrderDialog))
         {
             //gremlinHelper om later snel met de database te kunnen werken
             gremlinHelper = new GremlinHelper(configuration);
+            auth = AuthenticationModel.Instance();
 
             AddDialog(new WaterfallDialog(nameof(WaterfallDialog), new WaterfallStep[]
             {
@@ -85,6 +87,15 @@ namespace CoreBot.Dialogs
                 orderExists = await gremlinHelper.OrderExistsByNumberAsync(orderNumber);
                 if (orderExists)
                 {
+                    bool allowed = await gremlinHelper.OrderBelongsToUserAsync(orderNumber.ToString());
+
+                    if (!allowed)
+                    {
+                        await stepContext.Context.SendActivityAsync("De ingelogde gebruiker " + auth.GetLoggedInUser() + " heeft geen order met nummer " + orderNumber.ToString());
+                        orderNumber = 0;
+                        return await stepContext.EndDialogAsync();
+                    }
+
                     orderProducts = await gremlinHelper.GetOrderProductsAsync(orderNumber);
                     string status = await gremlinHelper.GetOrderStatusAsync(orderNumber);
                     if (status.Contains("deliver"))

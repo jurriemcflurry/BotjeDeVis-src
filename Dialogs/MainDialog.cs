@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using CoreBot.CognitiveModels;
 using CoreBot.ConversationState;
 using CoreBot.Dialogs;
+using CoreBot.Models;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Builder.Dialogs.Choices;
@@ -20,6 +21,7 @@ namespace Microsoft.BotBuilderSamples.Dialogs
         private readonly WebshopRecognizer _luisRecognizer;
         protected readonly ILogger Logger;
         private LuisHelper luisResult;
+        private AuthenticationModel auth;
 
         // Dependency injection uses this constructor to instantiate MainDialog
         public MainDialog(WebshopRecognizer luisRecognizer, ILogger<MainDialog> logger, IConfiguration configuration, ConversationState state)
@@ -27,7 +29,7 @@ namespace Microsoft.BotBuilderSamples.Dialogs
         {
             _luisRecognizer = luisRecognizer;
             Logger = logger;
-            _authenticationState = state.CreateProperty<AuthenticationState>(nameof(AuthenticationState));
+            auth = AuthenticationModel.Instance();
 
             AddDialog(new TextPrompt(nameof(TextPrompt)));
             AddDialog(new ChoicePrompt(nameof(ChoicePrompt)));
@@ -38,12 +40,15 @@ namespace Microsoft.BotBuilderSamples.Dialogs
             AddDialog(new PaymentDialog(configuration));
             AddDialog(new ComplaintDialog(configuration));
             AddDialog(new DeliveriesDialog(configuration));
+            AddDialog(new LoginDialog(configuration));
+            AddDialog(new CreateAccountDialog(configuration));
             AddDialog(new GreetingDialog());
             AddDialog(new NoneDialog());
             AddDialog(new CancelAndHelpDialog(nameof(CancelAndHelpDialog)));
             AddDialog(new WaterfallDialog(nameof(WaterfallDialog), new WaterfallStep[]
             {
                 PromptStepAsync,
+                LoginOrCreateAccountAsync,
                 IntroStepAsync,
                 ActStepAsync,
                 CheckForNextStepAsync,
@@ -56,14 +61,46 @@ namespace Microsoft.BotBuilderSamples.Dialogs
 
         private async Task<DialogTurnResult> PromptStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
-            //let the user login
-            //save username in UserProfile
-            //set Authenticationstate.authenticated = true;
-            return await stepContext.NextAsync();
+            if(!auth.GetAuthenticationState())
+            {
+                return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions
+                {
+                    Prompt = MessageFactory.Text("Wilt u inloggen of een nieuw account aanmaken?"),
+                    RetryPrompt = MessageFactory.Text("Probeer het nog een keer"),
+                    Choices = ChoiceFactory.ToChoices(new List<string> { "Inloggen", "Account aanmaken" })
+                }, cancellationToken);
+            }
+            else
+            {
+                return await stepContext.NextAsync();
+            }
+
+                     
+        }
+
+        private async Task<DialogTurnResult> LoginOrCreateAccountAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        {
+            if (auth.GetAuthenticationState())
+            {
+                return await stepContext.NextAsync();
+            }
+
+            FoundChoice choice = (FoundChoice)stepContext.Result;
+
+            if(choice.Index == 0)
+            {
+                return await stepContext.BeginDialogAsync(nameof(LoginDialog), cancellationToken);
+            }
+            else
+            {
+                return await stepContext.BeginDialogAsync(nameof(CreateAccountDialog), cancellationToken);
+            }
         }
 
         private async Task<DialogTurnResult> IntroStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
+            await stepContext.Context.SendActivityAsync("Je bent ingelogd als: " + auth.GetLoggedInUser());
+
             if (!_luisRecognizer.IsConfigured)
             {
                 await stepContext.Context.SendActivityAsync(

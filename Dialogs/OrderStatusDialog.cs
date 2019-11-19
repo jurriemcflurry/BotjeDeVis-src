@@ -1,5 +1,6 @@
 ﻿using CoreBot.CognitiveModels;
 using CoreBot.Database;
+using CoreBot.Models;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Builder.Dialogs.Choices;
@@ -18,12 +19,14 @@ namespace CoreBot.Dialogs
     public class OrderStatusDialog : CancelAndHelpDialog
     {
         private GremlinHelper gremlinHelper;
+        private AuthenticationModel auth;
         private int orderNumber;
         private string status;
 
         public OrderStatusDialog(IConfiguration configuration) : base(nameof(OrderStatusDialog))
         {
             gremlinHelper = new GremlinHelper(configuration);
+            auth = AuthenticationModel.Instance();
 
             AddDialog(new ConfirmPrompt(nameof(ConfirmPrompt)));
             AddDialog(new WaterfallDialog(nameof(WaterfallDialog), new WaterfallStep[]{
@@ -62,7 +65,15 @@ namespace CoreBot.Dialogs
             {
                 orderNumber = Int32.Parse((string)stepContext.Result);
             }
-            
+
+            bool allowed = await gremlinHelper.OrderBelongsToUserAsync(orderNumber.ToString());
+
+            if (!allowed)
+            {
+                await stepContext.Context.SendActivityAsync("De ingelogde gebruiker " + auth.GetLoggedInUser() + " heeft geen order met nummer " + orderNumber.ToString());
+                return await stepContext.EndDialogAsync();
+            }
+
             status = await gremlinHelper.GetOrderStatusAsync(orderNumber);
             
             return await stepContext.NextAsync();

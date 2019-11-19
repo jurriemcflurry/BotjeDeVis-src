@@ -1,5 +1,6 @@
 ﻿using CoreBot.CognitiveModels;
 using CoreBot.Database;
+using CoreBot.Models;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Builder.Dialogs.Choices;

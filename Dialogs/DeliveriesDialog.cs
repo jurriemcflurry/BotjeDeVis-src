@@ -1,5 +1,6 @@
 ﻿using CoreBot.CognitiveModels;
 using CoreBot.Database;
+using CoreBot.Models;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Builder.Dialogs.Choices;
@@ -23,10 +24,12 @@ namespace CoreBot.Dialogs
         private string status;
         private int daysToDelivery;
         private string deliveryMoment;
+        private AuthenticationModel auth;
 
         public DeliveriesDialog(IConfiguration configuration) : base(nameof(DeliveriesDialog))
         {
             gremlinHelper = new GremlinHelper(configuration);
+            auth = AuthenticationModel.Instance();
 
             AddDialog(new WaterfallDialog(nameof(WaterfallDialog), new WaterfallStep[]
             {
@@ -82,6 +85,14 @@ namespace CoreBot.Dialogs
 
             if (orderExists)
             {
+                bool allowed = await gremlinHelper.OrderBelongsToUserAsync(orderNumber.ToString());
+
+                if (!allowed)
+                {
+                    await stepContext.Context.SendActivityAsync("De ingelogde gebruiker " + auth.GetLoggedInUser() + " heeft geen order met nummer " + orderNumber.ToString());
+                    return await stepContext.EndDialogAsync();
+                }
+
                 return await stepContext.NextAsync();
             }
             else
@@ -115,6 +126,13 @@ namespace CoreBot.Dialogs
 
         private async Task<DialogTurnResult> SetDeliveryDateAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
+            FoundChoice choice = (FoundChoice)stepContext.Result;
+
+            if(choice.Index == 1)
+            {
+                return await stepContext.EndDialogAsync();
+            }
+
             return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions
             {
                 Prompt = MessageFactory.Text("Bestelling " + orderNumber + " kan op de volgende momenten worden bezorgd: (kies een optie uit de lijst)"),

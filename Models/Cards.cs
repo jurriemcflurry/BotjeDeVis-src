@@ -1,4 +1,5 @@
 ﻿using Microsoft.Bot.Schema;
+using ServiceStack.Support.Markdown;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,7 +13,7 @@ namespace CoreBot.Models
         {
             var signinCard = new SigninCard
             {
-                Text = "BotFramework Sign-in Card",
+                Text = "Please login to be helped more effectively",
                 Buttons = new List<CardAction> { new CardAction(ActionTypes.Signin, "Sign-in", value: "https://login.microsoftonline.com/") },
             };
 
