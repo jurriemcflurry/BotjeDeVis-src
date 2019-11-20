@@ -41,6 +41,12 @@ namespace CoreBot.Dialogs
 
         private async Task<DialogTurnResult> GetOrderNumberAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
+            if (!auth.GetAuthenticationState())
+            {
+                await stepContext.Context.SendActivityAsync("Log in om de status van je bestelling te kunnen bekijken.");
+                return await stepContext.EndDialogAsync("inloggen");
+            }
+
             LuisHelper luisResult = (LuisHelper)stepContext.Options;
             string request = luisResult.Text;
             bool containsNumber = request.Any(Char.IsDigit);

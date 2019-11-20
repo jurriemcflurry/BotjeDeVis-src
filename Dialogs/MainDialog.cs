@@ -65,9 +65,9 @@ namespace Microsoft.BotBuilderSamples.Dialogs
             {
                 return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions
                 {
-                    Prompt = MessageFactory.Text("Wilt u inloggen of een nieuw account aanmaken?"),
+                    Prompt = MessageFactory.Text("Als u inlogt kunt u sneller geholpen worden. Log alstublieft in."),
                     RetryPrompt = MessageFactory.Text("Probeer het nog een keer"),
-                    Choices = ChoiceFactory.ToChoices(new List<string> { "Inloggen", "Account aanmaken" })
+                    Choices = ChoiceFactory.ToChoices(new List<string> { "Inloggen", "Account aanmaken", "Doorgaan zonder in te loggen" })
                 }, cancellationToken);
             }
             else
@@ -91,9 +91,13 @@ namespace Microsoft.BotBuilderSamples.Dialogs
             {
                 return await stepContext.BeginDialogAsync(nameof(LoginDialog), cancellationToken);
             }
-            else
+            else if(choice.Index == 1)
             {
                 return await stepContext.BeginDialogAsync(nameof(CreateAccountDialog), cancellationToken);
+            }
+            else
+            {
+                return await stepContext.NextAsync();
             }
         }
 
@@ -210,6 +214,10 @@ namespace Microsoft.BotBuilderSamples.Dialogs
             else if (message.Contains("bezorgen"))
             {
                 return await stepContext.BeginDialogAsync(nameof(DeliveriesDialog), message, cancellationToken);
+            }
+            else if (message.Contains("inloggen"))
+            {
+                return await stepContext.ReplaceDialogAsync(InitialDialogId, cancellationToken);
             }
 
             return await stepContext.NextAsync();

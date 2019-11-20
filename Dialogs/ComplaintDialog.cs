@@ -20,12 +20,14 @@ namespace CoreBot.Dialogs
     {
         private LuisHelper luisResult;
         private GremlinHelper gremlinHelper;
+        private AuthenticationModel auth;
         private int orderNumber;
         private string klacht;
 
         public ComplaintDialog(IConfiguration configuration) : base(nameof(ComplaintDialog))
         {
             gremlinHelper = new GremlinHelper(configuration);
+            auth = AuthenticationModel.Instance();
 
             AddDialog(new ChoicePrompt(nameof(ChoicePrompt)));
             AddDialog(new WaterfallDialog(nameof(WaterfallDialog), new WaterfallStep[]
@@ -42,6 +44,12 @@ namespace CoreBot.Dialogs
 
         private async Task<DialogTurnResult> GetOrderNumberAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
+            if (!auth.GetAuthenticationState())
+            {
+                await stepContext.Context.SendActivityAsync("Log alstublieft in zodat we uw klacht zo goed mogelijk kunnen oplosesen.");
+                return await stepContext.EndDialogAsync("inloggen");
+            }
+
             luisResult = (LuisHelper)stepContext.Options;
             string request = luisResult.Text;
             bool containsNumber = request.Any(Char.IsDigit);

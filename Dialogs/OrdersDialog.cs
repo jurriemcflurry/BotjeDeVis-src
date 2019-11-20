@@ -24,6 +24,7 @@ namespace CoreBot.Dialogs
     public class OrdersDialog : CancelAndHelpDialog
     {
         private GremlinHelper gremlinHelper;
+        private AuthenticationModel auth;
         private LuisHelper luisResult = null;
         private string[] productsString;
         private List<Product> productList = new List<Product>();
@@ -41,6 +42,7 @@ namespace CoreBot.Dialogs
         {
             // gremlinHelper to handle databaseinteraction
             gremlinHelper = new GremlinHelper(configuration);
+            auth = AuthenticationModel.Instance();
 
             //luisRecognizer for making LUIS calls
             _luisRecognizer = luisRecognizer;
@@ -67,6 +69,12 @@ namespace CoreBot.Dialogs
         //check for already mentioned products; either coming in with the luisResult from the MainDialog, or the productlist from a previous iteration
         private async Task<DialogTurnResult> CheckForProductsAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
+            if (!auth.GetAuthenticationState())
+            {
+                await stepContext.Context.SendActivityAsync("Log in of maak een account om een bestelling te doen.");
+                return await stepContext.EndDialogAsync("inloggen");
+            }
+
             productListString = "";
 
             if (luisResult == null && productList.Count == 0)

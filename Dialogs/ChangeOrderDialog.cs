@@ -52,6 +52,12 @@ namespace CoreBot.Dialogs
 
         private async Task<DialogTurnResult> AskForOrderNumberAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
+            if (!auth.GetAuthenticationState())
+            {
+                await stepContext.Context.SendActivityAsync("Je moet ingelogd zijn om je bestelling te kunnen wijzigen. Log in en probeer het opnieuw.");
+                return await stepContext.EndDialogAsync("inloggen");
+            }
+
             if (orderNumber.Equals(0))
             {
                 LuisHelper luisResult = (LuisHelper)stepContext.Options;

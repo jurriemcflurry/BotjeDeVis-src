@@ -43,6 +43,12 @@ namespace CoreBot.Dialogs
 
         private async Task<DialogTurnResult> GetOrderNumberAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
+            if (!auth.GetAuthenticationState())
+            {
+                await stepContext.Context.SendActivityAsync("Log in om je bestelling te betalen!");
+                return await stepContext.EndDialogAsync("inloggen");
+            }
+
             string type = stepContext.Options.GetType().ToString();
 
             if (type.Equals("CoreBot.CognitiveModels.LuisHelper"))
