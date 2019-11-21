@@ -106,7 +106,7 @@ namespace CoreBot.Dialogs
                     string status = await gremlinHelper.GetOrderStatusAsync(orderNumber);
                     if (status.Contains("deliver"))
                     {
-                        await stepContext.Context.SendActivityAsync("Deze bestelling kan niet worden aangepast, omdat deze gereed staat voor bezorging.");
+                        await stepContext.Context.SendActivityAsync("Deze bestelling kan niet worden aangepast, omdat deze gereed staat voor bezorging of al onderweg is.");
                         return await stepContext.EndDialogAsync();
                     }
 

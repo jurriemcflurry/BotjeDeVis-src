@@ -42,6 +42,7 @@ namespace Microsoft.BotBuilderSamples.Dialogs
             AddDialog(new DeliveriesDialog(configuration));
             AddDialog(new LoginDialog(configuration));
             AddDialog(new CreateAccountDialog(configuration));
+            AddDialog(new RetourDialog(configuration));
             AddDialog(new GreetingDialog());
             AddDialog(new NoneDialog());
             AddDialog(new CancelAndHelpDialog(nameof(CancelAndHelpDialog)));
@@ -174,7 +175,9 @@ namespace Microsoft.BotBuilderSamples.Dialogs
                 case LuisHelper.Intent.changeOrder:
                     return await stepContext.BeginDialogAsync(nameof(ChangeOrderDialog), luisResult, cancellationToken);
 
-               // case LuisHelper.Intent.Retour:
+                case LuisHelper.Intent.Retour:
+                    return await stepContext.BeginDialogAsync(nameof(RetourDialog), luisResult, cancellationToken);
+
                 case LuisHelper.Intent.orderStatus:
                     return await stepContext.BeginDialogAsync(nameof(OrderStatusDialog), luisResult, cancellationToken);
                 // case LuisHelper.Intent.Cancel;
