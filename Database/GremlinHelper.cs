@@ -74,6 +74,63 @@ namespace CoreBot.Database
             return success;
         }
 
+        public async Task<bool> ReturnOrderExistsByNumberAsync(int orderNumber)
+        {
+            g = ConnectToDatabase();
+            string returnOrderExistsQuery = "g.V().hasLabel('return').has('number','" + orderNumber + "')";
+            var result = await g.SubmitAsync<dynamic>(returnOrderExistsQuery);
+            var output = JsonConvert.SerializeObject(result);
+
+            if (output == "[]")
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        public async Task<bool> CreateReturnOrderAsync(Order returnOrder, Order order)
+        {
+            g = ConnectToDatabase();
+            string orderNumber = returnOrder.GetOrderNumber().ToString();
+            List<Product> productsToReturn = returnOrder.GetProducts();
+            bool success = false;
+
+            //creeer retour order vertice met ordernummer
+            string query = "g.addV('return').property('data','return').property('number','" + orderNumber + "')";
+            await g.SubmitAsync<dynamic>(query);
+
+            //creeer edge tussen net gemaakt order, en de ingelogde gebruiker
+            string edgeBetweenUserAndOrderQuery = "g.V().hasLabel('return').has('number','" + orderNumber + "').as('a').V().hasLabel('person').has('name','" + auth.GetLoggedInUser() + "').as('b').addE('has_return').from('b').to('a')";
+            await g.SubmitAsync<dynamic>(edgeBetweenUserAndOrderQuery);
+
+            //creeer edges tussen net gemaakt order, en de producten in de database adhv label = product & name = productName
+            foreach (Product p in productsToReturn)
+            {
+                string query2 = "g.V().hasLabel('return').has('number','" + orderNumber + "').as('a').V().hasLabel('product').has('name','" + p.GetProductName() + "').as('b').addE('contains_product').from('a').to('b')";
+                var result = await g.SubmitAsync<dynamic>(query2);
+                var output = JsonConvert.SerializeObject(result);
+                if (output == "[]")
+                {
+                    success = false;
+                }
+                else
+                {
+                    success = true;
+                }
+            }
+
+            if (success)
+            {
+                foreach (Product p in productsToReturn)
+                {
+                    await RemoveProductFromOrderAsync(order, p);
+                }
+            }
+
+            return success;
+        }
+
         public async Task<bool> PayOrderAsync(int orderNumber)
         {
             g = ConnectToDatabase();

@@ -25,6 +25,8 @@ namespace CoreBot.Dialogs
         private Order order;
         private List<Product> products;
         private List<Product> returnProducts;
+        private List<string> productsString;
+        private bool entireOrder;
 
         public RetourDialog(IConfiguration configuration) : base(nameof(RetourDialog))
         {
@@ -37,6 +39,7 @@ namespace CoreBot.Dialogs
                 CheckForOrderNumberAsync,
                 CheckOrderStatusAsync,
                 GetOrderProductsAsync,
+                ProductsOrOrderRetourAsync,
                 SelectReturnProductsAsync,
                 ConfirmReturnAsync,
                 HandleReturnAsync,
@@ -114,25 +117,86 @@ namespace CoreBot.Dialogs
 
         private async Task<DialogTurnResult> GetOrderProductsAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
-            List<Product> orderProducts = await gremlinHelper.GetOrderProductsAsync(orderNumber);
-            order = new Order(orderNumber, orderProducts);
-            products = order.GetProducts();
-            List<string> productsString = new List<string>();
-
-            foreach (Product p in products)
+            if (order.Equals(null))
             {
-                productsString.Add(p.GetProductName());
+                List<Product> orderProducts = await gremlinHelper.GetOrderProductsAsync(orderNumber);
+                order = new Order(orderNumber, orderProducts);
+                products = order.GetProducts();
             }
 
-            return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions
+            if (products.Count().Equals(0))
             {
-                Prompt = MessageFactory.Text("Welk product wil je terugsturen?"),
-                Choices = ChoiceFactory.ToChoices(productsString)
-            }, cancellationToken);
+                await stepContext.Context.SendActivityAsync("Er zijn geen producten in deze bestelling die retour gezonden kunnen worden");
+
+                if(returnProducts.Count() > 0)
+                {
+                    entireOrder = true;
+                    return await stepContext.NextAsync();
+                }
+                else
+                {
+                    return await stepContext.EndDialogAsync();
+                }             
+            }
+            else if (products.Count().Equals(1))
+            {
+                entireOrder = true;
+                foreach (Product p in products)
+                {
+                    returnProducts.Add(p);
+                    products.Remove(p);
+                }              
+            }
+            else
+            {
+                return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions
+                {
+                    Prompt = MessageFactory.Text("Wil je enkele producten retour zenden, of de volledige bestelling?"),
+                    Choices = ChoiceFactory.ToChoices(new List<string> { "Producten", "Gehele bestelling" })
+                }, cancellationToken);
+            }
+
+            return await stepContext.NextAsync();
+        }
+
+        private async Task<DialogTurnResult> ProductsOrOrderRetourAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        {
+            if (!entireOrder)
+            {
+                return await stepContext.NextAsync();
+            }
+
+            FoundChoice choice = (FoundChoice)stepContext.Result;
+
+            if(choice.Index == 0)
+            {
+                return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions
+                {
+                    Prompt = MessageFactory.Text("Welk product wil je terugsturen?"),
+                    Choices = ChoiceFactory.ToChoices(productsString)
+                }, cancellationToken);
+            }
+            else if(choice.Index == 1)
+            {
+                entireOrder = true;
+
+                foreach(Product p in products)
+                {
+                    returnProducts.Add(p);
+                    products.Remove(p);
+                }
+            }
+
+            return await stepContext.NextAsync();
         }
 
         private async Task<DialogTurnResult> SelectReturnProductsAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
+            if (entireOrder)
+            {
+                return await stepContext.NextAsync();
+            }
+
             FoundChoice choice = (FoundChoice)stepContext.Result;
             string productFound = choice.Value.ToString();
 
@@ -140,8 +204,8 @@ namespace CoreBot.Dialogs
             {
                 if (p.GetProductName().Equals(productFound))
                 {
-                    products.Remove(p);
-                    returnProducts.Add(p);                   
+                    returnProducts.Add(p);
+                    products.Remove(p);                
                 }
             }
 
@@ -154,6 +218,16 @@ namespace CoreBot.Dialogs
 
         private async Task<DialogTurnResult> ConfirmReturnAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
+            if (entireOrder)
+            {
+                return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions
+                {
+                    Prompt = MessageFactory.Text("Bevestig dat je de bestelling met nummer " + orderNumber + "retour wil zenden"),
+                    Choices = ChoiceFactory.ToChoices(new List<string> { "Retour bevestigen", "Annuleren" })
+                }, cancellationToken);
+            }
+
+            // else selected to add another product, or to confirm
             FoundChoice choice = (FoundChoice)stepContext.Result;
 
             if(choice.Index == 0)
@@ -162,20 +236,58 @@ namespace CoreBot.Dialogs
             }
             else
             {
-                return await stepContext.NextAsync();
+                //confirm return of selected products
+                return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions
+                {
+                    Prompt = MessageFactory.Text("Bevestig dat je deze producten retour wil zenden: " + returnProducts.ToString()), //nagaan of deze weergave prettig is
+                    Choices = ChoiceFactory.ToChoices(new List<string> { "Retour bevestigen", "Annuleren" })
+                }, cancellationToken);
             }
         }
 
         private async Task<DialogTurnResult> HandleReturnAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
-            //maak gremlincall om retourorder aan te maken
+            FoundChoice choice = (FoundChoice)stepContext.Result;
 
-            return await stepContext.NextAsync();
+            if(choice.Index == 0)
+            {
+                Random rnd = new Random();
+                int returnOrderNumber = rnd.Next(1, 99999);
+
+                while (await gremlinHelper.ReturnOrderExistsByNumberAsync(returnOrderNumber))
+                {
+                    returnOrderNumber = rnd.Next(1, 99999);
+                }
+
+                Order returnOrder = new Order(returnOrderNumber, returnProducts);
+
+                bool returnOrderCreated = await gremlinHelper.CreateReturnOrderAsync(returnOrder, order);
+
+                if (returnOrderCreated)
+                {
+                    return await stepContext.NextAsync();
+                }
+                else
+                {
+                    await stepContext.Context.SendActivityAsync("De retour kon niet worden geplaatst. Probeer het later opnieuw.");
+                    return await stepContext.EndDialogAsync();
+                }
+            }
+            else
+            {
+                return await stepContext.EndDialogAsync();
+            }
+
+            
+
+            
         }
 
         private async Task<DialogTurnResult> FinalStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
             orderNumber = 0;
+            products.Clear();
+            returnProducts.Clear();
             return await stepContext.EndDialogAsync();
         }
     }
