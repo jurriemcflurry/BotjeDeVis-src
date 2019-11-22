@@ -104,8 +104,6 @@ namespace Microsoft.BotBuilderSamples.Dialogs
 
         private async Task<DialogTurnResult> IntroStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
-            await stepContext.Context.SendActivityAsync("Je bent ingelogd als: " + auth.GetLoggedInUser());
-
             if (!_luisRecognizer.IsConfigured)
             {
                 await stepContext.Context.SendActivityAsync(
@@ -180,17 +178,22 @@ namespace Microsoft.BotBuilderSamples.Dialogs
 
                 case LuisHelper.Intent.orderStatus:
                     return await stepContext.BeginDialogAsync(nameof(OrderStatusDialog), luisResult, cancellationToken);
-                // case LuisHelper.Intent.Cancel;
 
                 case LuisHelper.Intent.Payment:
                     return await stepContext.BeginDialogAsync(nameof(PaymentDialog), luisResult, cancellationToken);
-                // implementeren
 
                 case LuisHelper.Intent.Complaint:
                     return await stepContext.BeginDialogAsync(nameof(ComplaintDialog), luisResult, cancellationToken);
 
                 case LuisHelper.Intent.Delivery:
                     return await stepContext.BeginDialogAsync(nameof(DeliveriesDialog), luisResult, cancellationToken);
+
+                case LuisHelper.Intent.Login:
+                    return await stepContext.BeginDialogAsync(nameof(LoginDialog), cancellationToken);
+
+                case LuisHelper.Intent.Logout:
+                    auth.Logout();
+                    return await stepContext.NextAsync();
 
                 default:
                     // Catch all for unhandled intents

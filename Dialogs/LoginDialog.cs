@@ -38,6 +38,12 @@ namespace CoreBot.Dialogs
 
         private async Task<DialogTurnResult> AskForUsernameAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
+            if (auth.GetAuthenticationState())
+            {
+                await stepContext.Context.SendActivityAsync("Je bent al ingelogd! De ingelogde gebruiker is " + auth.GetLoggedInUser());
+                return await stepContext.EndDialogAsync();
+            }
+
             return await stepContext.PromptAsync(nameof(TextPrompt), new PromptOptions
             {
                 Prompt = MessageFactory.Text("Wat is je naam?")
@@ -78,6 +84,7 @@ namespace CoreBot.Dialogs
 
         private async Task<DialogTurnResult> FinalStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
+            await stepContext.Context.SendActivityAsync("Je bent ingelogd als: " + auth.GetLoggedInUser());
             return await stepContext.EndDialogAsync();
         }
     }
