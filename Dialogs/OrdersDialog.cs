@@ -344,11 +344,11 @@ namespace CoreBot.Dialogs
             if (choice.Index == 0)
             {
                 Random rnd = new Random();
-                int orderNumber = rnd.Next(1, 99999);
+                int orderNumber = rnd.Next(1000, 99999);
 
                 while (await gremlinHelper.OrderExistsByNumberAsync(orderNumber))
                 {
-                    orderNumber = rnd.Next(1, 99999);
+                    orderNumber = rnd.Next(1000, 99999);
                 }
 
                 order = new Order(orderNumber, productList);

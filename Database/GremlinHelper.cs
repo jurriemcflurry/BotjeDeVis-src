@@ -74,6 +74,21 @@ namespace CoreBot.Database
             return success;
         }
 
+        public async Task<bool> StoreRepairAsync(Product p, int daysToRepair)
+        {
+            g = ConnectToDatabase();
+            string storeRepairQuery = "g.addV('repair').property('data','repair').property('product','" + p.GetProductName() + "').property('daysToRepair','" + daysToRepair + "').as('a').V().hasLabel('person').has('name','" + auth.GetLoggedInUser() + "').as('b').addE('has_repair').from('b').to('a')";
+            var result = await g.SubmitAsync<dynamic>(storeRepairQuery);
+            var output = JsonConvert.SerializeObject(result);
+
+            if (output == "[]")
+            {
+                return false;
+            }
+
+            return true;
+        }
+
         public async Task<bool> ReturnOrderExistsByNumberAsync(int orderNumber)
         {
             g = ConnectToDatabase();
@@ -398,6 +413,20 @@ namespace CoreBot.Database
 
             return false;
         }
-    
+
+        public async Task<bool> CheckIfProductIsRepairableAsync(Product p)
+        {
+            g = ConnectToDatabase();
+            string checkIfProductIsRepairableQuery = "g.V().hasLabel('product').has('name','" + p.GetProductName() + "').has('repairable', true)";
+            var result = await g.SubmitAsync<dynamic>(checkIfProductIsRepairableQuery);
+            var output = JsonConvert.SerializeObject(result);
+
+            if (output != "[]")
+            {
+                return true;
+            }
+
+            return false;
+        }  
     }
 }

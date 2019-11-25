@@ -27,6 +27,8 @@ namespace CoreBot.CognitiveModels
             Login,
             Logout,
             Cancel,
+            Repair,
+            Warranty,
             None
         }
         public Dictionary<Intent, IntentScore> Intents;

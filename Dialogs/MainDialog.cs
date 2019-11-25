@@ -43,6 +43,7 @@ namespace Microsoft.BotBuilderSamples.Dialogs
             AddDialog(new LoginDialog(configuration));
             AddDialog(new CreateAccountDialog(configuration));
             AddDialog(new RetourDialog(configuration));
+            AddDialog(new RepairDialog(configuration));
             AddDialog(new GreetingDialog());
             AddDialog(new NoneDialog());
             AddDialog(new CancelAndHelpDialog(nameof(CancelAndHelpDialog)));
@@ -190,6 +191,12 @@ namespace Microsoft.BotBuilderSamples.Dialogs
 
                 case LuisHelper.Intent.Login:
                     return await stepContext.BeginDialogAsync(nameof(LoginDialog), cancellationToken);
+
+                case LuisHelper.Intent.Repair:
+                    return await stepContext.BeginDialogAsync(nameof(RepairDialog), luisResult, cancellationToken);
+
+                case LuisHelper.Intent.Warranty:
+                    return await stepContext.BeginDialogAsync(nameof(WarrantyDialog), luisResult, cancellationToken);
 
                 case LuisHelper.Intent.Logout:
                     auth.Logout();
