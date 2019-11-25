@@ -37,6 +37,7 @@ namespace CoreBot.Dialogs
         string[] productTypes;
         private readonly WebshopRecognizer _luisRecognizer;
         private bool paymentSuccessful;
+        private IMessageActivity reply;
 
         public OrdersDialog(IConfiguration configuration, WebshopRecognizer luisRecognizer) : base(nameof(OrdersDialog))
         {
@@ -102,9 +103,33 @@ namespace CoreBot.Dialogs
 
                             if (!productTypeExists)
                             {
-                                await stepContext.Context.SendActivityAsync("Product " + newProduct + " is helaas niet in ons assortiment.");
+                                await stepContext.Context.SendActivityAsync("Product " + newProduct + " is helaas niet in ons assortiment, of niet herkend als product. Probeer het nog een keer!");
+                                return await stepContext.NextAsync();
                             }
+
+                            List<string> firstProductType = new List<string>();
+                            firstProductType.Add(newProduct);
+
+                            var attachments = new List<Attachment>();
+                            reply = MessageFactory.Attachment(attachments);
+                            reply.AttachmentLayout = AttachmentLayoutTypes.Carousel;
+
+                            await CreateCardsAsync(reply, firstProductType);
+
+                            await stepContext.Context.SendActivityAsync("Van het type " + newProduct + " heb ik de volgende producten in het assortiment:");
+                            await stepContext.Context.SendActivityAsync(reply, cancellationToken);
+                            var opts = new PromptOptions
+                            {
+                                Prompt = new Activity
+                                {
+                                    Type = ActivityTypes.Message,
+                                    // Text = "", // You can comment this out if you don't want to display any text. Still works.
+                                }
+                            };
                            
+                            // Display a Text Prompt and wait for input
+                            return await stepContext.PromptAsync(nameof(TextPrompt), opts);
+
                         }
                     }
 
@@ -127,14 +152,33 @@ namespace CoreBot.Dialogs
         //ask the user what they want to do with the current order that is in process
         private async Task<DialogTurnResult> PromptQuestionAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
+            if (stepContext.Result != null)
+            {
+                string productInput = (string)stepContext.Result;
+                bool productExists = await gremlinHelper.ProductExistsAsync(productInput);
+
+                if (productExists)
+                {
+                    Product product = new Product(productInput);
+                    productList.Add(product);
+                    await stepContext.Context.SendActivityAsync("Het product " + product.GetProductName() + " is toegevoegd aan je bestelling!");
+                }
+                else
+                {
+                    await stepContext.Context.SendActivityAsync("Product " + productInput + " is helaas niet in ons assortiment.");
+                }
+            }
+
+            //cards legen na een voltooide productkeuze
+            reply.Attachments.Clear();
+
             return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions
             {
-                Prompt = MessageFactory.Text("Wil je een product toevoegen of verwijderen?"),
+                Prompt = MessageFactory.Text("Wil je iets wijzigen aan je bestelling?"),
                 Choices = ChoiceFactory.ToChoices(new List<string> { "Toevoegen", "Verwijderen", "Klaar met bestellen" })
             }, cancellationToken);
         }
 
-        //handle the user input, and act accordingly
         private async Task<DialogTurnResult> HandleChoiceAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
             FoundChoice choice = (FoundChoice)stepContext.Result;
@@ -179,7 +223,7 @@ namespace CoreBot.Dialogs
                 }
 
                 var attachments = new List<Attachment>();
-                var reply = MessageFactory.Attachment(attachments);
+                reply = MessageFactory.Attachment(attachments);
                 reply.AttachmentLayout = AttachmentLayoutTypes.Carousel;
 
                 await CreateCardsAsync(reply, productTypeList);
@@ -209,6 +253,8 @@ namespace CoreBot.Dialogs
 
         private async Task<DialogTurnResult> UpdateProductListAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
+            reply.Attachments.Clear();
+
             if (whatToDo.Equals("Toevoegen"))
             {
 
@@ -220,6 +266,7 @@ namespace CoreBot.Dialogs
                 {
                     Product product = new Product(productInput);
                     productList.Add(product);
+                    await stepContext.Context.SendActivityAsync("Het product " + product.GetProductName() + " is toegevoegd aan je bestelling!");
                 }
                 else
                 {
@@ -252,6 +299,7 @@ namespace CoreBot.Dialogs
             }
             productListString = productListString.Remove(productListString.Length - 2);
             await stepContext.Context.SendActivityAsync(productListString);
+
             return await stepContext.ReplaceDialogAsync(nameof(OrdersDialog), productList, cancellationToken);
         }
 

@@ -66,7 +66,7 @@ namespace Microsoft.BotBuilderSamples.Dialogs
             {
                 return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions
                 {
-                    Prompt = MessageFactory.Text("Als u inlogt kunt u sneller geholpen worden. Log alstublieft in."),
+                    Prompt = MessageFactory.Text("Kies een van de opties om door te gaan:"),
                     RetryPrompt = MessageFactory.Text("Probeer het nog een keer"),
                     Choices = ChoiceFactory.ToChoices(new List<string> { "Inloggen", "Account aanmaken", "Doorgaan zonder in te loggen" })
                 }, cancellationToken);
@@ -223,7 +223,8 @@ namespace Microsoft.BotBuilderSamples.Dialogs
             }
             else if (message.Contains("inloggen"))
             {
-                return await stepContext.ReplaceDialogAsync(InitialDialogId, cancellationToken);
+                var promptMessage = "Ik ben even kwijt wat je vroeg. Wat kan ik voor je doen?";
+                return await stepContext.ReplaceDialogAsync(InitialDialogId, promptMessage, cancellationToken);
             }
 
             return await stepContext.NextAsync();
