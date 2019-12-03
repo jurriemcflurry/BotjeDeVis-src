@@ -265,6 +265,7 @@ namespace CoreBot.Dialogs
 
                 if (returnOrderCreated)
                 {
+                    await stepContext.Context.SendActivityAsync("De retourzending is aangemeld. De retourlabel is via de mail verzonden!");
                     return await stepContext.NextAsync();
                 }
                 else

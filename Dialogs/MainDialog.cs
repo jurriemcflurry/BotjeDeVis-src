@@ -44,6 +44,7 @@ namespace Microsoft.BotBuilderSamples.Dialogs
             AddDialog(new CreateAccountDialog(configuration));
             AddDialog(new RetourDialog(configuration));
             AddDialog(new RepairDialog(configuration));
+            AddDialog(new WarrantyDialog(configuration));
             AddDialog(new GreetingDialog());
             AddDialog(new NoneDialog());
             AddDialog(new CancelAndHelpDialog(nameof(CancelAndHelpDialog)));
@@ -63,11 +64,11 @@ namespace Microsoft.BotBuilderSamples.Dialogs
 
         private async Task<DialogTurnResult> PromptStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
-            if(!auth.GetAuthenticationState())
+            if (!auth.GetAuthenticationState())
             {
                 return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions
                 {
-                    Prompt = MessageFactory.Text("Kies een van de opties om door te gaan:"),
+                    Prompt = MessageFactory.Text("Om je beter te helpen, log alsjeblieft in! Kies een van de volgende opties:"),
                     RetryPrompt = MessageFactory.Text("Probeer het nog een keer"),
                     Choices = ChoiceFactory.ToChoices(new List<string> { "Inloggen", "Account aanmaken", "Doorgaan zonder in te loggen" })
                 }, cancellationToken);

@@ -95,7 +95,7 @@ namespace CoreBot.Dialogs
 
             if (complaintStored)
             {
-                await stepContext.Context.SendActivityAsync("Uw klacht is succesvol opgeslagen. Er zal zo snel mogelijk een menselijke collega naar kijken en dit met u oplossen.");
+                await stepContext.Context.SendActivityAsync("Uw klacht is succesvol opgeslagen. Er zal zo snel mogelijk een menselijke collega naar kijken en contact met u opnemen.");
                 return await stepContext.NextAsync();
             }
             else

@@ -72,6 +72,13 @@ namespace CoreBot.Dialogs
                 }
                 else
                 {
+                    orderNumber = await gremlinHelper.GetOrderNumberByPersonAsync();
+
+                    if (orderNumber != 0)
+                    {
+                        return await stepContext.NextAsync();
+                    }
+
                     var messageText = "Wat is je ordernummer?";
                     var promptMessage = MessageFactory.Text(messageText, messageText, InputHints.ExpectingInput);
                     return await stepContext.PromptAsync(nameof(TextPrompt), new PromptOptions { Prompt = promptMessage }, cancellationToken);
@@ -214,6 +221,7 @@ namespace CoreBot.Dialogs
                 {
                     //zo nee, helaas niet in assortiment
                     await stepContext.Context.SendActivityAsync("Product " + productFound + " is helaas niet in ons assortiment.");
+                    return await stepContext.ReplaceDialogAsync(nameof(ChangeOrderDialog));
                 }
             }           
 

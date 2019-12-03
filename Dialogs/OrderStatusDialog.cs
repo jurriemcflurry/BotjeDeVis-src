@@ -59,6 +59,13 @@ namespace CoreBot.Dialogs
             }
             else
             {
+                orderNumber = await gremlinHelper.GetOrderNumberByPersonAsync();
+
+                if(orderNumber != 0)
+                {
+                    return await stepContext.NextAsync();
+                }
+
                 var messageText = "Wat is het ordernummer? Dan ga ik voor je op zoek.";
                 var promptMessage = MessageFactory.Text(messageText, messageText, InputHints.ExpectingInput);
                 return await stepContext.PromptAsync(nameof(TextPrompt), new PromptOptions { Prompt = promptMessage }, cancellationToken);
@@ -96,19 +103,19 @@ namespace CoreBot.Dialogs
             switch (status)
             {
                 case "awaiting payment":
-                    await stepContext.Context.SendActivityAsync("We zijn in afwachting van je betaling voor deze order.");
+                    await stepContext.Context.SendActivityAsync("We zijn in afwachting van je betaling voor deze order met nummer " + orderNumber + " .");
                     return await stepContext.PromptAsync(nameof(ConfirmPrompt), new PromptOptions { Prompt = MessageFactory.Text("Wil je de order nu betalen?")}, cancellationToken);
                 case "payment received":
-                    await stepContext.Context.SendActivityAsync("Je betaling is ontvangen. Je bestelling wordt gereedgemaakt voor verzending!");
+                    await stepContext.Context.SendActivityAsync("Je betaling is ontvangen. Je bestelling met nummer " + orderNumber + " wordt gereedgemaakt voor verzending!");
                     return await stepContext.PromptAsync(nameof(ConfirmPrompt), new PromptOptions { Prompt = MessageFactory.Text("Wil je nu een bezorgmoment inplannen?") }, cancellationToken);
                 case "order received":
-                    await stepContext.Context.SendActivityAsync("Je bestelling wordt klaargemaakt voor verzending!");
+                    await stepContext.Context.SendActivityAsync("Je bestelling met nummer " + orderNumber + " wordt klaargemaakt voor verzending!");
                     return await stepContext.NextAsync();
-                case "being delivery":
-                    await stepContext.Context.SendActivityAsync("De bestelling is onderweg!");
+                case "being delivered":
+                    await stepContext.Context.SendActivityAsync("De bestelling met nummer " + orderNumber + " is onderweg!");
                     return await stepContext.NextAsync();
                 case "delivered":
-                    await stepContext.Context.SendActivityAsync("Je bestelling is afgeleverd!");
+                    await stepContext.Context.SendActivityAsync("Je bestelling met nummer " + orderNumber + " is afgeleverd!");
                     return await stepContext.NextAsync();
                 default:
                     await stepContext.Context.SendActivityAsync("Er lijkt iets fout te zijn gegaan, ik kan geen informatie over deze order vinden.");

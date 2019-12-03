@@ -46,6 +46,7 @@ namespace CoreBot.Database
             string orderNumber = order.GetOrderNumber().ToString();
             List<Product> productsToStore = order.GetProducts();
             bool success = false;
+            string orderDate = DateTime.Today.ToString("d");
 
             //creeer order vertice met ordernummer
             string query = "g.addV('order').property('data','order').property('number','" + orderNumber + "').property('status','awaiting payment')";
@@ -58,7 +59,7 @@ namespace CoreBot.Database
             //creeer edges tussen net gemaakt order, en de producten in de database adhv label = product & name = productName
             foreach (Product p in productsToStore)
             {
-                string query2 = "g.V().hasLabel('order').has('number','" + orderNumber + "').as('a').V().hasLabel('product').has('name','" + p.GetProductName() + "').as('b').addE('contains_product').from('a').to('b')";
+                string query2 = "g.V().hasLabel('order').has('number','" + orderNumber + "').as('a').V().hasLabel('product').has('name','" + p.GetProductName() + "').as('b').addE('contains_product').property('orderdate','" + orderDate + "').from('a').to('b')";
                 var result = await g.SubmitAsync<dynamic>(query2);
                 var output = JsonConvert.SerializeObject(result);
                 if (output == "[]")
@@ -285,8 +286,9 @@ namespace CoreBot.Database
 
         public async Task AddProductToOrderAsync(Order order, Product product)
         {
+            string orderDate = DateTime.Today.ToString("o");
             g = ConnectToDatabase();
-            string addProductToOrder = "g.V().hasLabel('order').has('number','" + order.GetOrderNumber() + "').as('a').V().hasLabel('product').has('name','" + product.GetProductName() + "').as('b').addE('contains_product').from('a').to('b')";
+            string addProductToOrder = "g.V().hasLabel('order').has('number','" + order.GetOrderNumber() + "').as('a').V().hasLabel('product').has('name','" + product.GetProductName() + "').as('b').addE('contains_product').property('orderdate','" + orderDate + "').from('a').to('b')";
             await g.SubmitAsync<dynamic>(addProductToOrder);
             await SetOrderPartiallyPaidAsync(order.GetOrderNumber());
         }
@@ -427,6 +429,44 @@ namespace CoreBot.Database
             }
 
             return false;
-        }  
+        }
+
+        public async Task<string> GetProductWarrantyAsync(int orderNumber, Product p)
+        {
+            g = ConnectToDatabase();
+            string getProductWarrantyQuery = "g.V().hasLabel('order').has('number','" + orderNumber + "').outE().hasLabel('contains_product').where(inV().hasLabel('product').has('name','" + p.GetProductName() + "'))";
+            var result = await g.SubmitAsync<dynamic>(getProductWarrantyQuery);
+            var output = JsonConvert.SerializeObject(result);
+            var edge = JArray.Parse(output);
+            var edgeObject = (JObject)edge[0];
+            var properties = (JObject)edgeObject["properties"];
+            var orderDate = properties["orderdate"];
+
+            return orderDate.ToString();
+        }
+
+        public async Task<int> GetOrderNumberByPersonAsync()
+        {
+            g = ConnectToDatabase();
+            string getOrderNumberByPersonQuery = "g.V().hasLabel('person').has('name', '" + auth.GetLoggedInUser() + "').outE().hasLabel('has_order').inV()";
+            var result = await g.SubmitAsync<dynamic>(getOrderNumberByPersonQuery);
+            var output = JsonConvert.SerializeObject(result);
+            var orders = JArray.Parse(output);
+
+            if(orders.Count != 1)
+            {
+                return 0;
+            }
+            else
+            {
+                var orderObject = (JObject)orders[0];
+                var properties = (JObject)orderObject["properties"];
+                var number = (JArray)properties["number"];
+                var number2 = (JObject)number[0];
+                var orderNumber = number2["value"].ToString();
+
+                return Int32.Parse(orderNumber);
+            }
+        }
     }
 }
