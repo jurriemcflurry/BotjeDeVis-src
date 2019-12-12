@@ -23,6 +23,7 @@ namespace CoreBot.Dialogs
         private AuthenticationModel auth;
         private int orderNumber;
         private string klacht;
+        private bool orderExists;
 
         public ComplaintDialog(IConfiguration configuration) : base(nameof(ComplaintDialog))
         {
@@ -46,7 +47,7 @@ namespace CoreBot.Dialogs
         {
             if (!auth.GetAuthenticationState())
             {
-                await stepContext.Context.SendActivityAsync("Log alstublieft in zodat we uw klacht zo goed mogelijk kunnen oplosesen.");
+                await stepContext.Context.SendActivityAsync("Log alstublieft in zodat we uw klacht zo goed mogelijk kunnen oplossen.");
                 return await stepContext.EndDialogAsync("inloggen");
             }
 
@@ -62,6 +63,13 @@ namespace CoreBot.Dialogs
             }
             else
             {
+                orderNumber = await gremlinHelper.GetOrderNumberByPersonAsync();
+
+                if (orderNumber != 0)
+                {
+                    return await stepContext.NextAsync();
+                }
+
                 var messageText = "Wat is het ordernummer van de bestelling waar uw klacht over gaat?";
                 var promptMessage = MessageFactory.Text(messageText, messageText, InputHints.ExpectingInput);
                 return await stepContext.PromptAsync(nameof(TextPrompt), new PromptOptions { Prompt = promptMessage }, cancellationToken);
@@ -73,6 +81,25 @@ namespace CoreBot.Dialogs
             if (orderNumber.Equals(null))
             {
                 orderNumber = Int32.Parse((string)stepContext.Result);
+            }
+
+            orderExists = await gremlinHelper.OrderExistsByNumberAsync(orderNumber);
+            if (orderExists)
+            {
+                bool allowed = await gremlinHelper.OrderBelongsToUserAsync(orderNumber.ToString());
+
+                if (!allowed)
+                {
+                    await stepContext.Context.SendActivityAsync("De ingelogde gebruiker " + auth.GetLoggedInUser() + " heeft geen order met nummer " + orderNumber.ToString());
+                    orderNumber = 0;
+                    return await stepContext.EndDialogAsync();
+                }
+            }
+            else
+            {
+                await stepContext.Context.SendActivityAsync("Ik kan geen order vinden met nummer " + orderNumber.ToString() + ". Probeer het aub opnieuw.");
+                orderNumber = 0;
+                return await stepContext.ReplaceDialogAsync(nameof(ComplaintDialog), cancellationToken);
             }
 
             var messageText = "Wat is uw klacht?";

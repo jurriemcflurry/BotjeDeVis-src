@@ -79,6 +79,13 @@ namespace CoreBot.Dialogs
             }
             else
             {
+                orderNumber = await gremlinHelper.GetOrderNumberByPersonAsync();
+
+                if (orderNumber != 0)
+                {
+                    return await stepContext.NextAsync();
+                }
+
                 var messageText = "Wat is het ordernummer van de bestelling?";
                 var promptMessage = MessageFactory.Text(messageText, messageText, InputHints.ExpectingInput);
                 return await stepContext.PromptAsync(nameof(TextPrompt), new PromptOptions { Prompt = promptMessage }, cancellationToken);
