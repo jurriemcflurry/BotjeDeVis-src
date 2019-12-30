@@ -104,10 +104,20 @@ namespace CoreBot.Dialogs
             {
                 case "awaiting payment":
                     await stepContext.Context.SendActivityAsync("We zijn in afwachting van je betaling voor deze order met nummer " + orderNumber + " .");
-                    return await stepContext.PromptAsync(nameof(ConfirmPrompt), new PromptOptions { Prompt = MessageFactory.Text("Wil je de order nu betalen?")}, cancellationToken);
+                    return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions
+                    {
+                        Prompt = MessageFactory.Text("Wil je de bestelling nu betalen?"),
+                        RetryPrompt = MessageFactory.Text("Probeer het nog een keer"),
+                        Choices = ChoiceFactory.ToChoices(new List<string> { "Ja", "Nee" })
+                    }, cancellationToken);
                 case "payment received":
                     await stepContext.Context.SendActivityAsync("Je betaling is ontvangen. Je bestelling met nummer " + orderNumber + " wordt gereedgemaakt voor verzending!");
-                    return await stepContext.PromptAsync(nameof(ConfirmPrompt), new PromptOptions { Prompt = MessageFactory.Text("Wil je nu een bezorgmoment inplannen?") }, cancellationToken);
+                    return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions
+                    {
+                        Prompt = MessageFactory.Text("Wil je nu een bezorgmoment inplannen?"),
+                        RetryPrompt = MessageFactory.Text("Probeer het nog een keer"),
+                        Choices = ChoiceFactory.ToChoices(new List<string> { "Ja", "Nee" })
+                    }, cancellationToken);
                 case "order received":
                     await stepContext.Context.SendActivityAsync("Je bestelling met nummer " + orderNumber + " wordt klaargemaakt voor verzending!");
                     return await stepContext.NextAsync();
@@ -128,7 +138,9 @@ namespace CoreBot.Dialogs
         {
             if(stepContext.Result != null)
             {
-                if ((bool)stepContext.Result && status.Equals("awaiting payment"))
+                FoundChoice choice = (FoundChoice)stepContext.Result;
+
+                if (choice.Index == 0 && status.Equals("awaiting payment"))
                 {
                     bool orderPaid = await gremlinHelper.PayOrderAsync(orderNumber);
 
@@ -141,7 +153,7 @@ namespace CoreBot.Dialogs
                         await stepContext.Context.SendActivityAsync("Betaling kon niet worden uitgevoerd. Probeer het later opnieuw.");
                     }
                 }
-                else if((bool)stepContext.Result && status.Equals("payment received"))
+                else if(choice.Index == 0 && status.Equals("payment received"))
                 {
                     return await stepContext.EndDialogAsync(orderNumber + " bezorgen");
                 }

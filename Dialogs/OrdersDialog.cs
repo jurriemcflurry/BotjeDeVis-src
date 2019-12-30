@@ -174,7 +174,7 @@ namespace CoreBot.Dialogs
 
             return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions
             {
-                Prompt = MessageFactory.Text("Wil je iets wijzigen aan je bestelling?"),
+                Prompt = MessageFactory.Text("Wil je een product toevoegen, verwijderen, of ben je klaar met deze bestelling?"),
                 Choices = ChoiceFactory.ToChoices(new List<string> { "Toevoegen", "Verwijderen", "Klaar met bestellen" })
             }, cancellationToken);
         }

@@ -40,14 +40,11 @@ namespace CoreBot.CognitiveModels
             public DateTimeSpec[] datetime;
 
             // Lists
-           
             [JsonProperty("product")]
             public string[] products;
 
             [JsonProperty("bestelling")]
             public string[] order;
-
-            // Composites
 
             // Instance
             public class _Instance

@@ -122,13 +122,14 @@ namespace CoreBot.Dialogs
 
             if (status.Equals("payment received"))
             {
-                await stepContext.Context.SendActivityAsync("Deze bestelling is gereed om bezorgd te worden.");
+                return await stepContext.NextAsync();
+                /*await stepContext.Context.SendActivityAsync("Deze bestelling is gereed om bezorgd te worden.");
                 return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions
                 {
                     Prompt = MessageFactory.Text("Wil je de bezorging nu inplannen?"),
                     RetryPrompt = MessageFactory.Text("Probeer het nog een keer"),
                     Choices = ChoiceFactory.ToChoices(new List<string> { "Bezorging inplannen", "Annuleren" })
-                }, cancellationToken);
+                }, cancellationToken);*/
             }
             else
             {
@@ -140,12 +141,12 @@ namespace CoreBot.Dialogs
 
         private async Task<DialogTurnResult> SetDeliveryDateAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
-            FoundChoice choice = (FoundChoice)stepContext.Result;
+            /*FoundChoice choice = (FoundChoice)stepContext.Result;
 
             if(choice.Index == 1)
             {
                 return await stepContext.EndDialogAsync();
-            }
+            }*/
 
             return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions
             {
