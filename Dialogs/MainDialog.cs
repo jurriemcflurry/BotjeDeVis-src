@@ -128,26 +128,29 @@ namespace Microsoft.BotBuilderSamples.Dialogs
 
         private async Task<DialogTurnResult> ActStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
-            try
+            if (stepContext.Result is FoundChoice)
             {
-                FoundChoice choice = (FoundChoice)stepContext.Result;
-                if (choice != null)
+                try
                 {
-                    switch (choice.Index)
+                    FoundChoice choice = (FoundChoice)stepContext.Result;
+                    if (choice != null)
                     {
-                        case 0:
-                            return await stepContext.BeginDialogAsync(nameof(OrdersDialog), cancellationToken);
+                        switch (choice.Index)
+                        {
+                            case 0:
+                                return await stepContext.BeginDialogAsync(nameof(OrdersDialog), cancellationToken);
 
-                        case 1:
-                            return await stepContext.BeginDialogAsync(nameof(ChangeOrderDialog), cancellationToken);
+                            case 1:
+                                return await stepContext.BeginDialogAsync(nameof(ChangeOrderDialog), cancellationToken);
+                        }
                     }
                 }
-            }
-            catch
-            {
+                catch
+                {
 
+                }
             }
-            
+                      
 
             if (!_luisRecognizer.IsConfigured)
             {

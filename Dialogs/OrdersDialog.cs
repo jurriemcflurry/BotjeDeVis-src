@@ -181,6 +181,7 @@ namespace CoreBot.Dialogs
 
         private async Task<DialogTurnResult> HandleChoiceAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
+            reply.Attachments.Clear();
             FoundChoice choice = (FoundChoice)stepContext.Result;
             whatToDo = choice.Value;
             switch (choice.Index)
@@ -219,7 +220,18 @@ namespace CoreBot.Dialogs
                 {
                     string productType = productTypes[i];
                     string newProductType = Regex.Replace(productType, " ", string.Empty);
-                    productTypeList.Add(newProductType);
+                    bool productTypeFromListExists = await gremlinHelper.ProductTypeExistsAsync(newProductType);
+
+                    if (productTypeFromListExists)
+                    {
+                        productTypeList.Add(newProductType);
+                    }
+                    else
+                    {
+                        await stepContext.Context.SendActivityAsync("Ik heb geen product of categorie kunnen vinden met de naam: " + newProductType);
+                        productTypeList.Clear();
+                        return await stepContext.ReplaceDialogAsync(nameof(OrdersDialog), productList, cancellationToken);
+                    }
                 }
 
                 var attachments = new List<Attachment>();
@@ -300,6 +312,7 @@ namespace CoreBot.Dialogs
             productListString = productListString.Remove(productListString.Length - 2);
             await stepContext.Context.SendActivityAsync(productListString);
 
+            productTypeList.Clear();
             return await stepContext.ReplaceDialogAsync(nameof(OrdersDialog), productList, cancellationToken);
         }
 
@@ -368,6 +381,7 @@ namespace CoreBot.Dialogs
                     {
                         await stepContext.Context.SendActivityAsync("Het lukte helaas niet om je bestelling uit te voeren. Probeer het later opnieuw.");
                         productList.Clear();
+                        productTypeList.Clear();
                         luisResult = null;
                         return await stepContext.EndDialogAsync();
                     }                    
@@ -376,6 +390,7 @@ namespace CoreBot.Dialogs
                 {
                     await stepContext.Context.SendActivityAsync("Het lukte helaas niet om je bestelling uit te voeren. Probeer het later opnieuw.");
                     productList.Clear();
+                    productTypeList.Clear();
                     luisResult = null;
                     return await stepContext.EndDialogAsync();
                 }
@@ -430,6 +445,7 @@ namespace CoreBot.Dialogs
         private async Task<DialogTurnResult> FinalStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
             productList.Clear();
+            productTypeList.Clear();
             luisResult = null;
 
             if (paymentSuccessful)
