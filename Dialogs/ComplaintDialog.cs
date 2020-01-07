@@ -78,7 +78,7 @@ namespace CoreBot.Dialogs
 
         private async Task<DialogTurnResult> RequestComplaintSubjectAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
-            if (orderNumber.Equals(null))
+            if (orderNumber.Equals(null) || orderNumber.Equals(0))
             {
                 orderNumber = Int32.Parse((string)stepContext.Result);
             }

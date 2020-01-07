@@ -23,9 +23,9 @@ namespace CoreBot.Dialogs
         private int orderNumber = 0;
         private string status;
         private Order order;
-        private List<Product> products;
-        private List<Product> returnProducts;
-        private List<string> productsString;
+        private List<Product> products = new List<Product>();
+        private List<Product> returnProducts = new List<Product>();
+        private List<string> productsString = new List<string>();
         private bool entireOrder;
 
         public RetourDialog(IConfiguration configuration) : base(nameof(RetourDialog))
@@ -124,12 +124,11 @@ namespace CoreBot.Dialogs
 
         private async Task<DialogTurnResult> GetOrderProductsAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
-            if (order.Equals(null))
-            {
+            
                 List<Product> orderProducts = await gremlinHelper.GetOrderProductsAsync(orderNumber);
                 order = new Order(orderNumber, orderProducts);
                 products = order.GetProducts();
-            }
+            
 
             if (products.Count().Equals(0))
             {
@@ -150,9 +149,10 @@ namespace CoreBot.Dialogs
                 entireOrder = true;
                 foreach (Product p in products)
                 {
-                    returnProducts.Add(p);
-                    products.Remove(p);
-                }              
+                    returnProducts.Add(p);                   
+                }
+
+                products.Clear();
             }
             else
             {
@@ -168,7 +168,7 @@ namespace CoreBot.Dialogs
 
         private async Task<DialogTurnResult> ProductsOrOrderRetourAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
-            if (!entireOrder)
+            if (entireOrder)
             {
                 return await stepContext.NextAsync();
             }
@@ -229,7 +229,7 @@ namespace CoreBot.Dialogs
             {
                 return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions
                 {
-                    Prompt = MessageFactory.Text("Bevestig dat je de bestelling met nummer " + orderNumber + "retour wil zenden"),
+                    Prompt = MessageFactory.Text("Bevestig dat je de bestelling met nummer " + orderNumber + " retour wil zenden"),
                     Choices = ChoiceFactory.ToChoices(new List<string> { "Retour bevestigen", "Annuleren" })
                 }, cancellationToken);
             }
