@@ -95,6 +95,7 @@ namespace CoreBot.Dialogs
                         {
                             Product product = new Product(newProduct);
                             productList.Add(product);
+                            await stepContext.Context.SendActivityAsync("Het product " + product.GetProductName() + " is toegevoegd aan je bestelling!");
                         }
                         else
                         {
@@ -170,7 +171,11 @@ namespace CoreBot.Dialogs
             }
 
             //cards legen na een voltooide productkeuze
-            reply.Attachments.Clear();
+            if(reply != null)
+            {
+                reply.Attachments.Clear();
+            }
+           
 
             return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions
             {

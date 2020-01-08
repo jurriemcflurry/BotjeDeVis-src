@@ -229,7 +229,7 @@ namespace CoreBot.Dialogs
             {
                 return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions
                 {
-                    Prompt = MessageFactory.Text("Bevestig dat je de bestelling met nummer " + orderNumber + " retour wil zenden"),
+                    Prompt = MessageFactory.Text("Bevestig dat je de bestelling met nummer " + orderNumber + " retour wil zenden."),
                     Choices = ChoiceFactory.ToChoices(new List<string> { "Retour bevestigen", "Annuleren" })
                 }, cancellationToken);
             }
