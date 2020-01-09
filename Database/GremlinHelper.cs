@@ -373,7 +373,7 @@ namespace CoreBot.Database
                     return false;
                 }
 
-                string addComplaintToUserQuery = "g.V().hasLabel('complaint').has('orderNumber','" + orderNumber + "').as('a')..V().hasLabel('person').has('name','" + auth.GetLoggedInUser() + "').as('b').addE('has_complaint').from('b').to('a')";
+                string addComplaintToUserQuery = "g.V().hasLabel('complaint').has('orderNumber','" + orderNumber + "').as('a').V().hasLabel('person').has('name','" + auth.GetLoggedInUser() + "').as('b').addE('has_complaint').from('b').to('a')";
                 var result3 = await g.SubmitAsync<dynamic>(addComplaintToUserQuery);
                 var output3 = JsonConvert.SerializeObject(result2);
 

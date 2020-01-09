@@ -22,7 +22,7 @@ namespace CoreBot.Dialogs
         private AuthenticationModel auth;
         private LuisHelper luisResult;
         private int orderNumber = 0;
-        private List<string> productsString;
+        private List<string> productsString = new List<string>();
         private Product productToRepair;
         private int daysToRepair;
 

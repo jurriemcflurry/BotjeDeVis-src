@@ -25,7 +25,7 @@ namespace CoreBot.Dialogs
         private List<string> productsString = new List<string>();
         private Product warrantyProduct;
         private List<Product> productList;
-        private List<Product> returnProducts;
+        private List<Product> returnProducts = new List<Product>();
         private DateTime twoYearsAgo = DateTime.Today.AddYears(-2);
 
         public WarrantyDialog(IConfiguration configuration) : base(nameof(WarrantyDialog))
