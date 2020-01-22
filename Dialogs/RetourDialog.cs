@@ -177,6 +177,11 @@ namespace CoreBot.Dialogs
 
             if(choice.Index == 0)
             {
+                foreach (Product p in products)
+                {
+                    productsString.Add(p.GetProductName());
+                }
+
                 return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions
                 {
                     Prompt = MessageFactory.Text("Welk product wil je terugsturen?"),
@@ -212,15 +217,18 @@ namespace CoreBot.Dialogs
                 if (p.GetProductName().Equals(productFound))
                 {
                     returnProducts.Add(p);
-                    products.Remove(p);                
+                    products.Remove(p);
+                    await stepContext.Context.SendActivityAsync("Product " + p.GetProductName() + " is toegevoegd als retour.");
+                    return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions
+                    {
+                        Prompt = MessageFactory.Text("Wat wil je nog meer doen?"),
+                        Choices = ChoiceFactory.ToChoices(new List<string> { "Retourproduct toevoegen", "Retour inplannen" })
+                    }, cancellationToken);
                 }
             }
 
-            return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions
-            {
-                Prompt = MessageFactory.Text("Wat wil je nog meer doen?"),
-                Choices = ChoiceFactory.ToChoices(new List<string> { "Retourproduct toevoegen", "Retour inplannen" })
-            }, cancellationToken);
+            await stepContext.Context.SendActivityAsync("Het is niet gelukt om dit product toe te voegen als retour. Probeer het later opnieuw.");
+            return await stepContext.EndDialogAsync();
         }
 
         private async Task<DialogTurnResult> ConfirmReturnAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
@@ -243,10 +251,18 @@ namespace CoreBot.Dialogs
             }
             else
             {
+                string returnProductList = "";
+
+                foreach(Product p in returnProducts)
+                {
+                    returnProductList += p.GetProductName() + ", ";
+                }
+                returnProductList = returnProductList.Remove(returnProductList.Length - 2);
+
                 //confirm return of selected products
                 return await stepContext.PromptAsync(nameof(ChoicePrompt), new PromptOptions
                 {
-                    Prompt = MessageFactory.Text("Bevestig dat je deze producten retour wil zenden: " + returnProducts.ToString()), //nagaan of deze weergave prettig is
+                    Prompt = MessageFactory.Text("Bevestig dat je deze producten retour wil zenden: " + returnProductList), //nagaan of deze weergave prettig is
                     Choices = ChoiceFactory.ToChoices(new List<string> { "Retour bevestigen", "Annuleren" })
                 }, cancellationToken);
             }
